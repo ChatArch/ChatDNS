@@ -2,24 +2,9 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
-try:
-    from chatenv import BaseEnvConfig as _BaseEnvConfig, EnvField as _EnvField
-except Exception:  # pragma: no cover - fallback for import-time robustness
-    _BaseEnvConfig = object  # type: ignore[assignment]
-
-    class _EnvField:  # type: ignore[no-redef]
-        def __init__(self, key: str, default=None, desc: str = "", is_sensitive: bool = False):
-            self.key = key
-            self.default = default
-            self.desc = desc
-            self.is_sensitive = is_sensitive
-
-        @property
-        def value(self):
-            return os.environ.get(self.key, self.default)
+from chatenv.fields import BaseEnvConfig as _BaseEnvConfig, EnvField as _EnvField
 
 
 BaseEnvConfig: Any = _BaseEnvConfig

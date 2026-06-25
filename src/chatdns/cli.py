@@ -19,12 +19,13 @@ from chatstyle import (
     resolve_command_inputs,
 )
 from .logging_utils import setup_logger
-from . import DynamicIPUpdater, create_dns_client
+from . import __version__, DynamicIPUpdater, create_dns_client
 from .domain_utils import split_full_domain
 
 
 # CLI 接口
 @click.group(invoke_without_command=True)
+@click.version_option(__version__, prog_name="ChatDNS")
 @click.pass_context
 def cli(ctx):
     """DNS helpers for record management, DDNS, and IP detection."""
