@@ -1,6 +1,6 @@
 # ChatDNS Docs
 
-ChatDNS is the standalone DNS helper extracted from ChatTool. The first extraction release focuses on DNS-only capabilities:
+ChatDNS is the standalone DNS helper extracted from ChatTool. It now provides:
 
 - Domain listing: `chatdns list`
 - Record lookup: `chatdns records`
@@ -8,6 +8,7 @@ ChatDNS is the standalone DNS helper extracted from ChatTool. The first extracti
 - Confirmed deletion: `chatdns delete`
 - IP detection: `chatdns ip`
 - DDNS updates: `chatdns ddns`
+- DNS-01 certificate apply/check: `chatdns cert apply` / `chatdns cert check`
 - MCP registration: `chatdns.mcp.register`
 
-The previous `chattool dns cert` certificate surface is intentionally outside the first DNS-only extraction and should be reviewed separately before moving certificate code.
+`chatdns cert` carries the old `chattool dns cert` boundary into ChatDNS. It uses ACME DNS-01 validation and writes `_acme-challenge` TXT records through the configured DNS provider. Certificate issuance and DNS writes are external side effects; test with `--staging` before production issuance.

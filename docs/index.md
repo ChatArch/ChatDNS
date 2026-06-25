@@ -1,6 +1,6 @@
 # ChatDNS 文档
 
-ChatDNS 是从 ChatTool 分离出的独立 DNS helper，当前第一版聚焦 DNS-only 能力：
+ChatDNS 是从 ChatTool 分离出的独立 DNS helper，当前提供：
 
 - 域名列表：`chatdns list`
 - 记录查询：`chatdns records`
@@ -8,6 +8,7 @@ ChatDNS 是从 ChatTool 分离出的独立 DNS helper，当前第一版聚焦 DN
 - 安全删除：`chatdns delete`
 - IP 探测：`chatdns ip`
 - DDNS：`chatdns ddns`
+- DNS-01 证书申请/检查：`chatdns cert apply` / `chatdns cert check`
 - MCP 工具注册：`chatdns.mcp.register`
 
-`chattool dns cert` 证书管理面暂不并入第一版，后续单独 review 是否进入 ChatDNS 或拆成独立证书包。
+`chatdns cert` 由旧 `chattool dns cert` 边界迁入，用 ACME DNS-01 验证并通过配置的 DNS provider 写入 `_acme-challenge` TXT 记录。证书申请和 DNS 写入是外部副作用；生产申请前建议先使用 `--staging` 验证。

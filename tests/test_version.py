@@ -7,13 +7,13 @@ from chatdns.cli import main
 
 
 def test_version():
-    assert chatdns.__version__ == "0.1.0"
+    assert chatdns.__version__ == "0.1.1"
 
 
 def test_cli_version():
     result = CliRunner().invoke(main, ["--version"])
     assert result.exit_code == 0, result.output
-    assert "ChatDNS, version 0.1.0" in result.output
+    assert "ChatDNS, version 0.1.1" in result.output
 
 
 def test_chatenv_config_entry_point_registered():
@@ -40,5 +40,6 @@ def test_public_api_exports_dns_helpers():
     assert chatdns.AliyunDNSClient is not None
     assert chatdns.TencentDNSClient is not None
     assert chatdns.DynamicIPUpdater is not None
+    assert chatdns.SSLCertUpdater is not None
     assert chatdns.create_dns_client is not None
     assert chatdns.split_full_domain("a.b.example.com") == ("example.com", "a.b")

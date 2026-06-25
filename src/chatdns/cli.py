@@ -44,6 +44,7 @@ def cli(ctx):
             "records - 查询 DNS 记录",
             "delete - 删除 DNS 记录",
             "ip - 查看当前 IP",
+            "cert - 证书管理",
         ],
     )
     ctx.invoke(cli.get_command(ctx, selected.split(" - ", 1)[0]))
@@ -631,6 +632,204 @@ def delete_record(full_domain, domain, rr, record_type, value, yes, provider, in
     except Exception as e:
         logger.error(f"删除DNS记录失败: {e}")
         raise click.ClickException(f"删除DNS记录失败: {e}")
+
+
+@cli.group(name="cert")
+def cert_group():
+    """Manage Let's Encrypt certificates through DNS-01 validation."""
+
+
+@cert_group.command(name="apply")
+@click.option(
+    "--domain",
+    "-d",
+    "domains",
+    multiple=True,
+    help="Certificate domain. Repeat for SANs/wildcards; first domain is the primary name.",
+)
+@click.option("--email", "-e", help="Let's Encrypt account email.")
+@click.option(
+    "--provider",
+    "-p",
+    default="aliyun",
+    type=click.Choice(["aliyun", "tencent"]),
+    show_default=True,
+    help="DNS provider used for DNS-01 TXT records.",
+)
+@click.option("--cert-dir", default="certs", show_default=True, help="Certificate output directory.")
+@click.option("--staging", is_flag=True, help="Use Let's Encrypt staging directory.")
+@click.option("--force", is_flag=True, help="Force renewal/application even if local cert is still valid.")
+@click.option("--log-file", default=None, help="Optional detailed log file path.")
+@click.option("--log-level", default="INFO", show_default=True, help="Log level.")
+@add_interactive_option
+def cert_apply(domains, email, provider, cert_dir, staging, force, log_file, log_level, interactive):
+    """Apply or renew certificates using ACME DNS-01 validation."""
+    provided_domains = list(domains)
+    if not provided_domains and interactive is not False and is_interactive_available():
+        answer = resolve_command_inputs(
+            schema=CommandSchema(
+                name="cert-domain",
+                fields=(
+                    CommandField(
+                        "domain",
+                        prompt="domain",
+                        required=True,
+                        missing_message="必须提供至少一个 --domain。",
+                    ),
+                ),
+            ),
+            provided={"domain": None},
+            interactive=interactive,
+            usage="Usage: chatdns cert apply -d example.com [-d '*.example.com'] -e EMAIL [--provider aliyun|tencent] [-i|-I]",
+        )
+        provided_domains = [answer["domain"]]
+
+    email_inputs = resolve_command_inputs(
+        schema=CommandSchema(
+            name="cert-email",
+            fields=(
+                CommandField(
+                    "email",
+                    prompt="email",
+                    required=True,
+                    missing_message="必须提供 Let's Encrypt 邮箱，例如 -e admin@example.com。",
+                ),
+            ),
+        ),
+        provided={"email": email},
+        interactive=interactive,
+        usage="Usage: chatdns cert apply -d example.com [-d '*.example.com'] -e EMAIL [--provider aliyun|tencent] [-i|-I]",
+    )
+    email = email_inputs["email"]
+
+    if not provided_domains:
+        raise click.ClickException("必须提供至少一个 --domain。")
+
+    from .cert import SSLCertUpdater
+
+    logger = setup_logger(
+        name="chatdns_cert",
+        log_file=log_file,
+        log_level=log_level,
+        format_type="detailed" if log_file else "simple",
+    )
+    updater = SSLCertUpdater(
+        domains=provided_domains,
+        email=email,
+        cert_dir=cert_dir,
+        staging=staging,
+        force=force,
+        dns_type=provider,
+        logger=logger,
+    )
+    success = asyncio.run(updater.run_once())
+    if not success:
+        raise click.ClickException("证书申请/续期失败。")
+    click.echo(f"证书申请/续期成功: {', '.join(provided_domains)}")
+
+
+@cert_group.command(name="check")
+@click.argument("domains", nargs=-1)
+@click.option("--cert-dir", default="certs", show_default=True, help="Certificate directory.")
+@click.option(
+    "--provider",
+    "-p",
+    default="aliyun",
+    type=click.Choice(["aliyun", "tencent"]),
+    show_default=True,
+    help="DNS provider used only to initialize the updater.",
+)
+def cert_check(domains, cert_dir, provider):
+    """Check local certificate expiry for one or more domains."""
+    if not domains:
+        raise click.ClickException("请提供至少一个域名，例如: chatdns cert check example.com")
+
+    from .cert import SSLCertUpdater
+
+    logger = setup_logger("chatdns_cert_check", log_level="INFO", format_type="simple")
+    updater = SSLCertUpdater(
+        domains=list(domains),
+        email="check@example.invalid",
+        cert_dir=cert_dir,
+        dns_type=provider,
+        dns_client=object(),
+        logger=logger,
+    )
+    for domain in domains:
+        expiry = updater.check_cert_expiry(domain)
+        if expiry is None:
+            click.echo(f"{domain}: no local certificate")
+            continue
+        needs = updater.needs_renewal(domain)
+        click.echo(f"{domain}: expires {expiry.isoformat()} renew={'yes' if needs else 'no'}")
+
+
+def _certbot_challenge_record(domain: str, dns_client=None) -> tuple[str, str]:
+    from .cert import normalize_certificate_domain
+
+    normalized = normalize_certificate_domain(domain).lstrip("*.")
+    main_domain = None
+    describe_domains = getattr(dns_client, "describe_domains", None)
+    if callable(describe_domains):
+        try:
+            zones = describe_domains(page_size=100)
+            if not isinstance(zones, (list, tuple)):
+                zones = []
+        except Exception:
+            zones = []
+        zone_names = []
+        for item in zones or []:
+            name = item.get("DomainName") if isinstance(item, dict) else str(item)
+            if name:
+                zone_names.append(name.strip().rstrip(".").lower())
+        matches = [zone for zone in zone_names if normalized == zone or normalized.endswith(f".{zone}")]
+        if matches:
+            main_domain = max(matches, key=len)
+    if main_domain is None:
+        parts = normalized.split(".")
+        main_domain = ".".join(parts[-2:]) if len(parts) >= 2 else normalized
+    if normalized == main_domain:
+        return main_domain, "_acme-challenge"
+    prefix = normalized[: -len(main_domain) - 1]
+    return main_domain, f"_acme-challenge.{prefix}"
+
+
+@cert_group.command(name="hook-auth", hidden=True)
+def cert_hook_auth():
+    """Certbot manual auth hook for DNS-01 validation."""
+    domain = os.environ.get("CERTBOT_DOMAIN")
+    validation = os.environ.get("CERTBOT_VALIDATION")
+    if not domain or not validation:
+        raise click.ClickException("CERTBOT_DOMAIN or CERTBOT_VALIDATION not set")
+
+    provider = os.environ.get("CHATDNS_DNS_PROVIDER") or os.environ.get("CHATTOOL_DNS_PROVIDER", "tencent")
+    logger = setup_logger("certbot_hook", log_level="INFO", format_type="simple")
+    client = create_dns_client(provider, logger=logger)
+    main_domain, rr = _certbot_challenge_record(domain, client)
+    record_id = client.add_domain_record(
+        domain_name=main_domain, rr=rr, type_="TXT", value=validation, ttl=120
+    )
+    if record_id is None or record_id is False:
+        raise click.ClickException(f"failed to add DNS TXT record for {rr}.{main_domain}")
+    click.echo(f"Added TXT record: {rr}.{main_domain}")
+
+
+@cert_group.command(name="hook-cleanup", hidden=True)
+def cert_hook_cleanup():
+    """Certbot manual cleanup hook for DNS-01 validation."""
+    domain = os.environ.get("CERTBOT_DOMAIN")
+    validation = os.environ.get("CERTBOT_VALIDATION")
+    if not domain:
+        return
+    if not validation:
+        raise click.ClickException("CERTBOT_VALIDATION not set; refusing broad TXT cleanup")
+
+    provider = os.environ.get("CHATDNS_DNS_PROVIDER") or os.environ.get("CHATTOOL_DNS_PROVIDER", "tencent")
+    logger = setup_logger("certbot_hook", log_level="INFO", format_type="simple")
+    client = create_dns_client(provider, logger=logger)
+    main_domain, rr = _certbot_challenge_record(domain, client)
+    client.delete_record_value(main_domain, rr, "TXT", validation)
+    click.echo(f"Deleted TXT record value: {rr}.{main_domain}")
 
 
 main = cli

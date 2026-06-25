@@ -4,10 +4,11 @@ from .base import DNSClient
 from .aliyun import AliyunDNSClient
 from .tencent import TencentDNSClient
 from .ip_updater import DynamicIPUpdater
+from .cert import SSLCertUpdater
 from .utils import DNSClientType, create_dns_client
 from .domain_utils import split_full_domain
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 __all__ = [
     "__version__",
@@ -15,6 +16,7 @@ __all__ = [
     "AliyunDNSClient",
     "TencentDNSClient",
     "DynamicIPUpdater",
+    "SSLCertUpdater",
     "DNSClientType",
     "create_dns_client",
     "split_full_domain",

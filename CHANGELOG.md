@@ -1,6 +1,15 @@
 # Changelog
 
-## 0.1.0 - Unreleased
+## 0.1.1 - 2026-06-26
+
+- Move the old `chattool dns cert` / DNS-01 certificate boundary into ChatDNS as `chatdns cert`.
+- Add `SSLCertUpdater` importable API with ACME DNS-01 helpers.
+- Add `chatdns cert apply` and `chatdns cert check` CLI commands.
+- Add hidden `chatdns cert hook-auth` / `hook-cleanup` commands for certbot manual DNS-01 hook compatibility.
+- Add runtime dependencies required by certificate issuance: `requests` and `cryptography`.
+- Fix wildcard DNS-01 challenge record handling so `*.example.com` writes `_acme-challenge.example.com`.
+
+## 0.1.0 - 2026-06-25
 
 - Extract DNS record management and DDNS helpers from ChatTool into standalone ChatDNS.
 - Add `chatdns` CLI with `list`, `records`, `set`, `delete`, `ip`, and `ddns` commands.

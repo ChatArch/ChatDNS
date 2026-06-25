@@ -12,7 +12,7 @@
 
 # ChatDNS
 
-ChatDNS 是从 ChatTool 分离出来的 ChatArch DNS helper。它提供独立 `chatdns` CLI 和可导入 Python API，用于 DNS 记录管理、DDNS 更新、云厂商 provider client、IP 探测与 MCP 注册。
+ChatDNS 是从 ChatTool 分离出来的 ChatArch DNS helper。它提供独立 `chatdns` CLI 和可导入 Python API，用于 DNS 记录管理、DDNS 更新、云厂商 provider client、IP 探测、DNS-01 证书自动化与 MCP 注册。
 
 ## 命令
 
@@ -25,6 +25,8 @@ chatdns set test.example.com -t A -v 1.2.3.4
 chatdns delete test.example.com -t A -v 1.2.3.4 --yes
 chatdns ip
 chatdns ddns home.example.com
+chatdns cert apply -d example.com -d '*.example.com' -e admin@example.com --provider aliyun
+chatdns cert check example.com
 ```
 
 当前支持：
@@ -32,7 +34,7 @@ chatdns ddns home.example.com
 - 阿里云 DNS
 - 腾讯云 DNSPod
 
-旧 `chattool dns cert` 证书管理面暂不放进第一版 DNS-only 分离；证书代码作为单独边界继续 review。
+旧 `chattool dns cert` 证书管理面现已迁入 `chatdns cert`。该能力使用 ACME DNS-01 验证，并通过配置的 DNS provider 写入 `_acme-challenge` TXT 记录。证书申请和 DNS 写入是外部副作用；生产申请前建议先使用 `--staging` 验证。
 
 ## 配置
 
