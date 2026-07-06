@@ -21,14 +21,33 @@ from chatstyle import (
 from .logging_utils import setup_logger
 from . import __version__, DynamicIPUpdater, create_dns_client
 from .domain_utils import split_full_domain
+from .env import load_chatenv
+
+
+PROVIDER_CHOICE = click.Choice(["aliyun", "tencent"])
+PROVIDER_HELP = "DNS提供商；未提供时读取 ChatEnv CHATDNS_DNS_PROVIDER，默认 aliyun"
 
 
 # CLI 接口
 @click.group(invoke_without_command=True)
 @click.version_option(__version__, prog_name="ChatDNS")
+@click.option(
+    "--env",
+    "env_profile",
+    "-e",
+    help="ChatEnv profile name for provider credentials (use before the command).",
+)
+@click.option(
+    "--chatarch-home",
+    type=click.Path(file_okay=False, dir_okay=True),
+    help="Override CHATARCH_HOME when reading ChatEnv profiles.",
+)
 @click.pass_context
-def cli(ctx):
+def cli(ctx, env_profile, chatarch_home):
     """DNS helpers for record management, DDNS, and IP detection."""
+    ctx.ensure_object(dict)
+    ctx.obj["env_profile"] = env_profile
+    ctx.obj["chatarch_home"] = chatarch_home
     if ctx.invoked_subcommand is not None:
         return
     if not is_interactive_available():
@@ -48,6 +67,39 @@ def cli(ctx):
         ],
     )
     ctx.invoke(cli.get_command(ctx, selected.split(" - ", 1)[0]))
+
+
+def _env_profile(ctx: click.Context) -> str | None:
+    return (ctx.obj or {}).get("env_profile")
+
+
+def _chatarch_home(ctx: click.Context) -> str | None:
+    return (ctx.obj or {}).get("chatarch_home")
+
+
+def _resolve_provider(ctx: click.Context, provider: str | None) -> str:
+    try:
+        return load_chatenv(
+            provider,
+            env_profile=_env_profile(ctx),
+            home=_chatarch_home(ctx),
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+
+
+def _create_dns_client(ctx: click.Context, provider: str | None, logger):
+    selected_provider = _resolve_provider(ctx, provider)
+    try:
+        client = create_dns_client(
+            selected_provider,
+            env_profile=_env_profile(ctx),
+            chatarch_home=_chatarch_home(ctx),
+            logger=logger,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    return selected_provider, client
 
 
 def _resolve_domain_inputs(full_domain, domain, rr):
@@ -290,19 +342,20 @@ def _get_local_ip(local_ip_cidr=None):
 @click.option(
     "--provider",
     "-p",
-    default="aliyun",
-    type=click.Choice(["aliyun", "tencent"]),
-    help="DNS提供商 (默认: aliyun)",
+    default=None,
+    type=PROVIDER_CHOICE,
+    help=PROVIDER_HELP,
 )
 @click.option("--page", "page_number", default=1, show_default=True, help="页码")
 @click.option(
     "--page-size", default=20, show_default=True, help="每页数量，具体上限由云厂商决定"
 )
-def list_domains(provider, page_number, page_size):
+@click.pass_context
+def list_domains(ctx, provider, page_number, page_size):
     """List DNS domains in the provider account."""
     logger = setup_logger("dns_list", log_level="INFO", format_type="simple")
     try:
-        client = create_dns_client(provider, logger=logger)
+        provider, client = _create_dns_client(ctx, provider, logger)
         domains = client.describe_domains(
             page_number=page_number,
             page_size=page_size,
@@ -367,12 +420,14 @@ def show_ip(ip_type, local_ip_cidr):
 @click.option(
     "--provider",
     "-p",
-    default="aliyun",
-    type=click.Choice(["aliyun", "tencent"]),
-    help="DNS提供商 (默认: aliyun)",
+    default=None,
+    type=PROVIDER_CHOICE,
+    help=PROVIDER_HELP,
 )
 @add_interactive_option
+@click.pass_context
 def ddns(
+    ctx,
     full_domain,
     domain,
     rr,
@@ -425,6 +480,8 @@ def ddns(
         format_type="detailed" if monitor else "simple",
     )
 
+    provider = _resolve_provider(ctx, provider)
+
     # 创建更新器
     updater = DynamicIPUpdater(
         domain_name=domain,
@@ -438,6 +495,8 @@ def ddns(
         log_file=actual_log_file,
         ip_type=ip_type,
         local_ip_cidr=local_ip_cidr,
+        env_profile=_env_profile(ctx),
+        chatarch_home=_chatarch_home(ctx),
     )
 
     try:
@@ -474,12 +533,13 @@ def ddns(
 @click.option(
     "--provider",
     "-p",
-    default="aliyun",
-    type=click.Choice(["aliyun", "tencent"]),
-    help="DNS提供商 (默认: aliyun)",
+    default=None,
+    type=PROVIDER_CHOICE,
+    help=PROVIDER_HELP,
 )
 @add_interactive_option
-def set_record(full_domain, domain, rr, record_type, value, ttl, provider, interactive):
+@click.pass_context
+def set_record(ctx, full_domain, domain, rr, record_type, value, ttl, provider, interactive):
     """Create or update a DNS record.
 
     支持:
@@ -500,7 +560,7 @@ def set_record(full_domain, domain, rr, record_type, value, ttl, provider, inter
 
     logger = setup_logger("dns_set", log_level="INFO", format_type="simple")
     try:
-        client = create_dns_client(provider, logger=logger)
+        provider, client = _create_dns_client(ctx, provider, logger)
 
         logger.info(f"设置记录 {rr}.{domain} ({record_type}) -> {value}")
         success = client.set_record_value(domain, rr, record_type, value, ttl)
@@ -524,12 +584,13 @@ def set_record(full_domain, domain, rr, record_type, value, ttl, provider, inter
 @click.option(
     "--provider",
     "-p",
-    default="aliyun",
-    type=click.Choice(["aliyun", "tencent"]),
-    help="DNS提供商 (默认: aliyun)",
+    default=None,
+    type=PROVIDER_CHOICE,
+    help=PROVIDER_HELP,
 )
 @add_interactive_option
-def records(target, domain, rr, record_type, provider, interactive):
+@click.pass_context
+def records(ctx, target, domain, rr, record_type, provider, interactive):
     """Show DNS record details.
 
     支持:
@@ -550,7 +611,7 @@ def records(target, domain, rr, record_type, provider, interactive):
 
     logger = setup_logger("dns_records", log_level="INFO", format_type="simple")
     try:
-        client = create_dns_client(provider, logger=logger)
+        provider, client = _create_dns_client(ctx, provider, logger)
         records = client.describe_domain_records(
             domain, subdomain=rr, record_type=record_type
         )
@@ -573,12 +634,13 @@ def records(target, domain, rr, record_type, provider, interactive):
 @click.option(
     "--provider",
     "-p",
-    default="aliyun",
-    type=click.Choice(["aliyun", "tencent"]),
-    help="DNS提供商 (默认: aliyun)",
+    default=None,
+    type=PROVIDER_CHOICE,
+    help=PROVIDER_HELP,
 )
 @add_interactive_option
-def delete_record(full_domain, domain, rr, record_type, value, yes, provider, interactive):
+@click.pass_context
+def delete_record(ctx, full_domain, domain, rr, record_type, value, yes, provider, interactive):
     """Delete DNS records by domain, host record, type, and optional value."""
     domain, rr = _resolve_domain_inputs(full_domain, domain, rr)
     inputs = resolve_command_inputs(
@@ -593,7 +655,7 @@ def delete_record(full_domain, domain, rr, record_type, value, yes, provider, in
 
     logger = setup_logger("dns_delete", log_level="INFO", format_type="simple")
     try:
-        client = create_dns_client(provider, logger=logger)
+        provider, client = _create_dns_client(ctx, provider, logger)
         records = client.describe_domain_records(
             domain, subdomain=rr, record_type=record_type
         )
@@ -651,10 +713,9 @@ def cert_group():
 @click.option(
     "--provider",
     "-p",
-    default="aliyun",
-    type=click.Choice(["aliyun", "tencent"]),
-    show_default=True,
-    help="DNS provider used for DNS-01 TXT records.",
+    default=None,
+    type=PROVIDER_CHOICE,
+    help=PROVIDER_HELP,
 )
 @click.option("--cert-dir", default="certs", show_default=True, help="Certificate output directory.")
 @click.option("--staging", is_flag=True, help="Use Let's Encrypt staging directory.")
@@ -662,7 +723,8 @@ def cert_group():
 @click.option("--log-file", default=None, help="Optional detailed log file path.")
 @click.option("--log-level", default="INFO", show_default=True, help="Log level.")
 @add_interactive_option
-def cert_apply(domains, email, provider, cert_dir, staging, force, log_file, log_level, interactive):
+@click.pass_context
+def cert_apply(ctx, domains, email, provider, cert_dir, staging, force, log_file, log_level, interactive):
     """Apply or renew certificates using ACME DNS-01 validation."""
     provided_domains = list(domains)
     if not provided_domains and interactive is not False and is_interactive_available():
@@ -713,6 +775,7 @@ def cert_apply(domains, email, provider, cert_dir, staging, force, log_file, log
         log_level=log_level,
         format_type="detailed" if log_file else "simple",
     )
+    provider = _resolve_provider(ctx, provider)
     updater = SSLCertUpdater(
         domains=provided_domains,
         email=email,
@@ -721,6 +784,8 @@ def cert_apply(domains, email, provider, cert_dir, staging, force, log_file, log
         force=force,
         dns_type=provider,
         logger=logger,
+        env_profile=_env_profile(ctx),
+        chatarch_home=_chatarch_home(ctx),
     )
     success = asyncio.run(updater.run_once())
     if not success:
@@ -734,10 +799,9 @@ def cert_apply(domains, email, provider, cert_dir, staging, force, log_file, log
 @click.option(
     "--provider",
     "-p",
-    default="aliyun",
-    type=click.Choice(["aliyun", "tencent"]),
-    show_default=True,
-    help="DNS provider used only to initialize the updater.",
+    default=None,
+    type=PROVIDER_CHOICE,
+    help=PROVIDER_HELP,
 )
 def cert_check(domains, cert_dir, provider):
     """Check local certificate expiry for one or more domains."""
@@ -802,7 +866,7 @@ def cert_hook_auth():
     if not domain or not validation:
         raise click.ClickException("CERTBOT_DOMAIN or CERTBOT_VALIDATION not set")
 
-    provider = os.environ.get("CHATDNS_DNS_PROVIDER") or os.environ.get("CHATTOOL_DNS_PROVIDER", "tencent")
+    provider = os.environ.get("CHATDNS_DNS_PROVIDER") or os.environ.get("CHATTOOL_DNS_PROVIDER")
     logger = setup_logger("certbot_hook", log_level="INFO", format_type="simple")
     client = create_dns_client(provider, logger=logger)
     main_domain, rr = _certbot_challenge_record(domain, client)
@@ -824,7 +888,7 @@ def cert_hook_cleanup():
     if not validation:
         raise click.ClickException("CERTBOT_VALIDATION not set; refusing broad TXT cleanup")
 
-    provider = os.environ.get("CHATDNS_DNS_PROVIDER") or os.environ.get("CHATTOOL_DNS_PROVIDER", "tencent")
+    provider = os.environ.get("CHATDNS_DNS_PROVIDER") or os.environ.get("CHATTOOL_DNS_PROVIDER")
     logger = setup_logger("certbot_hook", log_level="INFO", format_type="simple")
     client = create_dns_client(provider, logger=logger)
     main_domain, rr = _certbot_challenge_record(domain, client)

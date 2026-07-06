@@ -18,13 +18,13 @@ ChatDNS is a ChatArch DNS helper extracted from ChatTool. It provides a standalo
 
 ```bash
 chatdns --help
-chatdns list --provider aliyun
+chatdns list
+chatdns --env work list --provider tencent
 chatdns records example.com
 chatdns records test.example.com
 chatdns set test.example.com -t A -v 1.2.3.4
 chatdns delete test.example.com -t A -v 1.2.3.4 --yes
 chatdns ip
-chatdns ddns home.example.com
 chatdns cert apply -d example.com -d '*.example.com' -e admin@example.com --provider aliyun
 chatdns cert check example.com
 ```
@@ -38,14 +38,17 @@ Certificate management from the old `chattool dns cert` surface is now available
 
 ## Configuration
 
-ChatDNS reads provider credentials from environment / ChatEnv-compatible config fields:
+ChatDNS reads provider credentials and defaults from environment / ChatEnv-compatible config fields:
 
+- `CHATDNS_DNS_PROVIDER` (default DNS provider/channel: `aliyun` or `tencent`)
 - `ALIBABA_CLOUD_ACCESS_KEY_ID`
 - `ALIBABA_CLOUD_ACCESS_KEY_SECRET`
 - `ALIBABA_CLOUD_REGION_ID`
 - `TENCENT_SECRET_ID`
 - `TENCENT_SECRET_KEY`
 - `TENCENT_REGION_ID`
+
+Active ChatEnv profiles are loaded automatically from `$CHATARCH_HOME/envs` (default: `~/.chatarch/envs`). Use the global `--env/-e` option before the command to select a named provider profile, for example `chatdns --env work list -p tencent`.
 
 Provider aliases are registered through the package's `chatenv.configs` entry point as `chatdns.config`.
 

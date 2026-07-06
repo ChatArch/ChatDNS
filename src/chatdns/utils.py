@@ -1,27 +1,32 @@
-import os
 from enum import Enum
 from typing import Union, Optional
+
 from .aliyun import AliyunDNSClient
+from .env import load_chatenv
 from .tencent import TencentDNSClient
 
 class DNSClientType(Enum):
     ALIYUN = 'aliyun'
     TENCENT = 'tencent'
 
-def create_dns_client(dns_type: Optional[Union[DNSClientType, str]] = None, **kwargs):
+def create_dns_client(
+    dns_type: Optional[Union[DNSClientType, str]] = None,
+    *,
+    env_profile: str | None = None,
+    chatarch_home: str | None = None,
+    **kwargs,
+):
     """
     创建DNS客户端工厂方法
-    
+
     Args:
-        dns_type: DNS服务商类型 ('aliyun', 'tencent')。如果未提供，尝试从环境变量 DEFAULT_DNS_PROVIDER 获取，默认为 'aliyun'
+        dns_type: DNS服务商类型 ('aliyun', 'tencent')。未提供时读取 ChatEnv 默认渠道。
+        env_profile: 可选 ChatEnv profile 名称，用于切换对应服务商凭据。
+        chatarch_home: 可选 CHATARCH_HOME 覆盖路径。
         **kwargs: 传递给客户端的参数
     """
-    if dns_type is None:
-        dns_type = os.environ.get('DEFAULT_DNS_PROVIDER', 'aliyun')
-        
-    if isinstance(dns_type, DNSClientType):
-        dns_type = dns_type.value
-        
+    dns_type = load_chatenv(dns_type, env_profile=env_profile, home=chatarch_home)
+
     if dns_type == 'aliyun':
         return AliyunDNSClient(**kwargs)
     elif dns_type == 'tencent':

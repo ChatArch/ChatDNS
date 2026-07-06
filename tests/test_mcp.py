@@ -3,6 +3,13 @@ import pytest
 from chatdns import mcp
 
 
+@pytest.fixture(autouse=True)
+def isolated_chatenv_home(monkeypatch, tmp_path):
+    monkeypatch.setenv("CHATARCH_HOME", str(tmp_path))
+    for key in ("CHATDNS_DNS_PROVIDER", "DNS_PROVIDER", "DEFAULT_DNS_PROVIDER", "CHATTOOL_DNS_PROVIDER"):
+        monkeypatch.delenv(key, raising=False)
+
+
 def test_mcp_registers_dns_tools():
     registered = []
 

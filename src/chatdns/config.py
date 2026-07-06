@@ -11,6 +11,26 @@ BaseEnvConfig: Any = _BaseEnvConfig
 EnvField: Any = _EnvField
 
 
+class ChatDNSConfig(BaseEnvConfig):
+    """ChatDNS default behavior configuration."""
+
+    _title = "ChatDNS Configuration"
+    _aliases = ["chatdns", "dns"]
+    _storage_dir = "ChatDNS"
+    _order = 30
+
+
+setattr(
+    ChatDNSConfig,
+    "CHATDNS_DNS_PROVIDER",
+    EnvField(
+        "CHATDNS_DNS_PROVIDER",
+        default="aliyun",
+        desc="Default DNS provider/channel (aliyun or tencent)",
+    ),
+)
+
+
 class AliyunConfig(BaseEnvConfig):
     """Alibaba Cloud DNS configuration."""
 
@@ -61,4 +81,4 @@ setattr(
 )
 
 
-__all__ = ["AliyunConfig", "TencentConfig"]
+__all__ = ["ChatDNSConfig", "AliyunConfig", "TencentConfig"]
