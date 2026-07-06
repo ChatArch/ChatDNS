@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.2 - 2026-07-06
 
 - Load ChatDNS ChatEnv active profiles automatically for CLI/API DNS client creation.
 - Add `CHATDNS_PROVIDER` as the ChatEnv default provider/channel setting.
