@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any
 
@@ -24,7 +23,6 @@ PROVIDER_NAMES = {
     TencentConfig: "tencent",
 }
 DEFAULT_PROVIDER = "aliyun"
-DEFAULT_PROVIDER_KEY = "CHATDNS_DNS_PROVIDER"
 
 
 def normalize_provider(provider: Any | None) -> str:
@@ -75,25 +73,14 @@ def load_chatenv(
     paths = get_paths(home)
     store = EnvStore(paths.envs_dir)
 
-    default_values = _load_config(store, ChatDNSConfig)
+    _load_config(store, ChatDNSConfig)
     _load_config(store, AliyunConfig)
     _load_config(store, TencentConfig)
 
-    profile_defaults: dict[str, str] = {}
     if env_profile:
-        profile_defaults = _maybe_load_profile(store, ChatDNSConfig, env_profile)
+        _maybe_load_profile(store, ChatDNSConfig, env_profile)
 
-    provider_value = (
-        provider
-        or os.getenv(DEFAULT_PROVIDER_KEY)
-        or os.getenv("DNS_PROVIDER")
-        or os.getenv("DEFAULT_DNS_PROVIDER")
-        or os.getenv("CHATTOOL_DNS_PROVIDER")
-        or profile_defaults.get(DEFAULT_PROVIDER_KEY)
-        or default_values.get(DEFAULT_PROVIDER_KEY)
-        or DEFAULT_PROVIDER
-    )
-    selected_provider = normalize_provider(provider_value)
+    selected_provider = normalize_provider(provider or ChatDNSConfig.CHATDNS_PROVIDER.value)
 
     if env_profile:
         provider_config = PROVIDER_CONFIGS[selected_provider]

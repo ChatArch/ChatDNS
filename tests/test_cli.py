@@ -14,7 +14,7 @@ def _write_env(home, storage, filename, content):
 @pytest.fixture(autouse=True)
 def isolated_chatenv_home(monkeypatch, tmp_path):
     monkeypatch.setenv("CHATARCH_HOME", str(tmp_path))
-    for key in ("CHATDNS_DNS_PROVIDER", "DNS_PROVIDER", "DEFAULT_DNS_PROVIDER", "CHATTOOL_DNS_PROVIDER"):
+    for key in ("CHATDNS_PROVIDER",):
         monkeypatch.delenv(key, raising=False)
 
 
@@ -37,7 +37,7 @@ def test_dns_help_commands():
 
 
 def test_list_uses_chatdns_default_provider_from_chatenv(tmp_path):
-    _write_env(tmp_path, "ChatDNS", ".env", "CHATDNS_DNS_PROVIDER='tencent'\n")
+    _write_env(tmp_path, "ChatDNS", ".env", "CHATDNS_PROVIDER='tencent'\n")
     runner = CliRunner()
     with patch("chatdns.cli.create_dns_client") as mock_factory:
         client = mock_factory.return_value

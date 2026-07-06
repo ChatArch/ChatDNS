@@ -22,11 +22,11 @@ class ChatDNSConfig(BaseEnvConfig):
 
 setattr(
     ChatDNSConfig,
-    "CHATDNS_DNS_PROVIDER",
+    "CHATDNS_PROVIDER",
     EnvField(
-        "CHATDNS_DNS_PROVIDER",
+        "CHATDNS_PROVIDER",
         default="aliyun",
-        desc="Default DNS provider/channel (aliyun or tencent)",
+        desc="Default provider/channel (aliyun or tencent)",
     ),
 )
 

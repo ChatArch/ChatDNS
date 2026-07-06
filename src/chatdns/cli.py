@@ -25,7 +25,7 @@ from .env import load_chatenv
 
 
 PROVIDER_CHOICE = click.Choice(["aliyun", "tencent"])
-PROVIDER_HELP = "DNS提供商；未提供时读取 ChatEnv CHATDNS_DNS_PROVIDER，默认 aliyun"
+PROVIDER_HELP = "DNS提供商；未提供时读取 ChatEnv CHATDNS_PROVIDER，默认 aliyun"
 
 
 # CLI 接口
@@ -866,9 +866,8 @@ def cert_hook_auth():
     if not domain or not validation:
         raise click.ClickException("CERTBOT_DOMAIN or CERTBOT_VALIDATION not set")
 
-    provider = os.environ.get("CHATDNS_DNS_PROVIDER") or os.environ.get("CHATTOOL_DNS_PROVIDER")
     logger = setup_logger("certbot_hook", log_level="INFO", format_type="simple")
-    client = create_dns_client(provider, logger=logger)
+    client = create_dns_client(logger=logger)
     main_domain, rr = _certbot_challenge_record(domain, client)
     record_id = client.add_domain_record(
         domain_name=main_domain, rr=rr, type_="TXT", value=validation, ttl=120
@@ -888,9 +887,8 @@ def cert_hook_cleanup():
     if not validation:
         raise click.ClickException("CERTBOT_VALIDATION not set; refusing broad TXT cleanup")
 
-    provider = os.environ.get("CHATDNS_DNS_PROVIDER") or os.environ.get("CHATTOOL_DNS_PROVIDER")
     logger = setup_logger("certbot_hook", log_level="INFO", format_type="simple")
-    client = create_dns_client(provider, logger=logger)
+    client = create_dns_client(logger=logger)
     main_domain, rr = _certbot_challenge_record(domain, client)
     client.delete_record_value(main_domain, rr, "TXT", validation)
     click.echo(f"Deleted TXT record value: {rr}.{main_domain}")

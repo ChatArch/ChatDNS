@@ -27,7 +27,7 @@ def test_chatenv_config_classes():
 
     assert ChatDNSConfig._aliases == ["chatdns", "dns"]
     assert ChatDNSConfig._storage_dir == "ChatDNS"
-    assert ChatDNSConfig.CHATDNS_DNS_PROVIDER.default == "aliyun"
+    assert ChatDNSConfig.CHATDNS_PROVIDER.default == "aliyun"
     assert AliyunConfig._aliases == ["ali", "aliyun", "alidns"]
     assert TencentConfig._aliases == ["tencent", "tx", "tencent-dns"]
     assert AliyunConfig._storage_dir == "Aliyun"

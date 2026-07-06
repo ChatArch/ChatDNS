@@ -6,7 +6,7 @@ from chatdns import mcp
 @pytest.fixture(autouse=True)
 def isolated_chatenv_home(monkeypatch, tmp_path):
     monkeypatch.setenv("CHATARCH_HOME", str(tmp_path))
-    for key in ("CHATDNS_DNS_PROVIDER", "DNS_PROVIDER", "DEFAULT_DNS_PROVIDER", "CHATTOOL_DNS_PROVIDER"):
+    for key in ("CHATDNS_PROVIDER",):
         monkeypatch.delenv(key, raising=False)
 
 
@@ -34,10 +34,10 @@ def test_mcp_registers_dns_tools():
 
 
 def test_get_provider_prefers_argument(monkeypatch):
-    monkeypatch.setenv("DNS_PROVIDER", "aliyun")
+    monkeypatch.setenv("CHATDNS_PROVIDER", "aliyun")
     assert mcp._get_provider("tencent") == "tencent"
 
 
-def test_get_provider_falls_back_to_env(monkeypatch):
-    monkeypatch.setenv("DNS_PROVIDER", "tencent")
+def test_get_provider_uses_chatenv_provider_field(monkeypatch):
+    monkeypatch.setenv("CHATDNS_PROVIDER", "tencent")
     assert mcp._get_provider() == "tencent"

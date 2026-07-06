@@ -40,7 +40,7 @@ chatdns cert check example.com
 
 ChatDNS 通过环境变量 / ChatEnv-compatible config 字段读取 provider 凭证和默认渠道：
 
-- `CHATDNS_DNS_PROVIDER`（默认 DNS provider/channel: `aliyun` 或 `tencent`）
+- `CHATDNS_PROVIDER`（默认 DNS provider/channel: `aliyun` 或 `tencent`）
 - `ALIBABA_CLOUD_ACCESS_KEY_ID`
 - `ALIBABA_CLOUD_ACCESS_KEY_SECRET`
 - `ALIBABA_CLOUD_REGION_ID`

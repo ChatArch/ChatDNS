@@ -16,16 +16,13 @@ def _write_env(home: Path, storage: str, filename: str, content: str) -> None:
 def clear_provider_env(monkeypatch):
     for key in (
         "CHATARCH_HOME",
-        "CHATDNS_DNS_PROVIDER",
-        "DNS_PROVIDER",
-        "DEFAULT_DNS_PROVIDER",
-        "CHATTOOL_DNS_PROVIDER",
+        "CHATDNS_PROVIDER",
     ):
         monkeypatch.delenv(key, raising=False)
 
 
 def test_load_chatenv_uses_chatdns_default_provider(tmp_path):
-    _write_env(tmp_path, "ChatDNS", ".env", "CHATDNS_DNS_PROVIDER='tencent'\n")
+    _write_env(tmp_path, "ChatDNS", ".env", "CHATDNS_PROVIDER='tencent'\n")
     _write_env(
         tmp_path,
         "Tencent",
@@ -36,14 +33,14 @@ def test_load_chatenv_uses_chatdns_default_provider(tmp_path):
     provider = load_chatenv(home=tmp_path)
 
     assert provider == "tencent"
-    assert ChatDNSConfig.CHATDNS_DNS_PROVIDER.value == "tencent"
+    assert ChatDNSConfig.CHATDNS_PROVIDER.value == "tencent"
     assert TencentConfig.TENCENT_SECRET_ID.value == "sid"
     assert TencentConfig.TENCENT_SECRET_KEY.value == "skey"
     assert TencentConfig.TENCENT_REGION_ID.value == "ap-shanghai"
 
 
 def test_load_chatenv_named_profile_overrides_selected_provider(tmp_path):
-    _write_env(tmp_path, "ChatDNS", ".env", "CHATDNS_DNS_PROVIDER='aliyun'\n")
+    _write_env(tmp_path, "ChatDNS", ".env", "CHATDNS_PROVIDER='aliyun'\n")
     _write_env(
         tmp_path,
         "Aliyun",
@@ -66,14 +63,13 @@ def test_load_chatenv_named_profile_overrides_selected_provider(tmp_path):
 
 
 def test_load_chatenv_reports_missing_named_provider_profile(tmp_path):
-    _write_env(tmp_path, "ChatDNS", ".env", "CHATDNS_DNS_PROVIDER='tencent'\n")
+    _write_env(tmp_path, "ChatDNS", ".env", "CHATDNS_PROVIDER='tencent'\n")
 
     with pytest.raises(FileNotFoundError, match="profile 'prod' not found for Tencent"):
         load_chatenv(env_profile="prod", home=tmp_path)
 
 
-def test_load_chatenv_keeps_legacy_env_provider_override(monkeypatch, tmp_path):
-    _write_env(tmp_path, "ChatDNS", ".env", "CHATDNS_DNS_PROVIDER='aliyun'\n")
-    monkeypatch.setenv("DNS_PROVIDER", "tencent")
+def test_load_chatenv_uses_chatenv_env_field(monkeypatch, tmp_path):
+    monkeypatch.setenv("CHATDNS_PROVIDER", "tencent")
 
     assert load_chatenv(home=tmp_path) == "tencent"

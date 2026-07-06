@@ -40,7 +40,7 @@ Certificate management from the old `chattool dns cert` surface is now available
 
 ChatDNS reads provider credentials and defaults from environment / ChatEnv-compatible config fields:
 
-- `CHATDNS_DNS_PROVIDER` (default DNS provider/channel: `aliyun` or `tencent`)
+- `CHATDNS_PROVIDER` (default DNS provider/channel: `aliyun` or `tencent`)
 - `ALIBABA_CLOUD_ACCESS_KEY_ID`
 - `ALIBABA_CLOUD_ACCESS_KEY_SECRET`
 - `ALIBABA_CLOUD_REGION_ID`

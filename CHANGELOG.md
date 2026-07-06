@@ -3,7 +3,7 @@
 ## Unreleased
 
 - Load ChatDNS ChatEnv active profiles automatically for CLI/API DNS client creation.
-- Add `CHATDNS_DNS_PROVIDER` as the ChatEnv default provider/channel setting.
+- Add `CHATDNS_PROVIDER` as the ChatEnv default provider/channel setting.
 - Add global `chatdns --env/-e PROFILE` support for selecting named provider profiles.
 - Raise the ChatEnv dependency floor to `chatenv>=0.2.2,<0.3.0`.
 
