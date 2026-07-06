@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 try:
@@ -11,16 +10,15 @@ except ImportError:  # pragma: no cover - optional MCP dependency
     FastMCP = Any  # type: ignore[misc,assignment]
 
 from . import DynamicIPUpdater, create_dns_client
+from .env import load_chatenv
 from .logging_utils import setup_logger
 
 logger = setup_logger("mcp_chatdns", log_level="INFO")
 
 
 def _get_provider(provider: str | None = None) -> str:
-    """Determine DNS provider from argument or environment."""
-    if provider:
-        return provider
-    return os.getenv("DNS_PROVIDER") or os.getenv("DEFAULT_DNS_PROVIDER") or "aliyun"
+    """Determine DNS provider from argument, environment, or ChatEnv."""
+    return load_chatenv(provider)
 
 
 def list_domains(provider: str | None = None) -> list[dict] | str:

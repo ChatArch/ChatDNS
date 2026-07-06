@@ -185,7 +185,6 @@ def test_certbot_hook_auth_adds_txt_record(monkeypatch):
     runner = CliRunner()
     monkeypatch.setenv("CERTBOT_DOMAIN", "*.sub.example.com")
     monkeypatch.setenv("CERTBOT_VALIDATION", "validation-token")
-    monkeypatch.setenv("CHATDNS_DNS_PROVIDER", "aliyun")
 
     with patch("chatdns.cli.create_dns_client") as create_client:
         client = create_client.return_value
@@ -195,7 +194,7 @@ def test_certbot_hook_auth_adds_txt_record(monkeypatch):
 
     assert result.exit_code == 0, result.output
     create_client.assert_called_once()
-    assert create_client.call_args.args[0] == "aliyun"
+    assert create_client.call_args.args == ()
     client.add_domain_record.assert_called_once_with(
         domain_name="example.com",
         rr="_acme-challenge.sub",
@@ -209,7 +208,6 @@ def test_certbot_hook_auth_fails_when_dns_add_fails(monkeypatch):
     runner = CliRunner()
     monkeypatch.setenv("CERTBOT_DOMAIN", "www.example.com")
     monkeypatch.setenv("CERTBOT_VALIDATION", "validation-token")
-    monkeypatch.setenv("CHATDNS_DNS_PROVIDER", "aliyun")
 
     with patch("chatdns.cli.create_dns_client") as create_client:
         client = create_client.return_value
@@ -225,7 +223,6 @@ def test_certbot_hook_cleanup_deletes_only_matching_txt_value(monkeypatch):
     runner = CliRunner()
     monkeypatch.setenv("CERTBOT_DOMAIN", "www.example.com")
     monkeypatch.setenv("CERTBOT_VALIDATION", "validation-token")
-    monkeypatch.setenv("CHATDNS_DNS_PROVIDER", "tencent")
 
     with patch("chatdns.cli.create_dns_client") as create_client:
         client = create_client.return_value
@@ -235,7 +232,7 @@ def test_certbot_hook_cleanup_deletes_only_matching_txt_value(monkeypatch):
 
     assert result.exit_code == 0, result.output
     create_client.assert_called_once()
-    assert create_client.call_args.args[0] == "tencent"
+    assert create_client.call_args.args == ()
     client.delete_record_value.assert_called_once_with(
         "example.com", "_acme-challenge.www", "TXT", "validation-token"
     )

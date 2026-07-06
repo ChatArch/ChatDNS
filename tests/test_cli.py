@@ -5,6 +5,19 @@ from unittest.mock import AsyncMock, patch
 from chatdns.cli import main
 
 
+def _write_env(home, storage, filename, content):
+    path = home / "envs" / storage / filename
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+
+
+@pytest.fixture(autouse=True)
+def isolated_chatenv_home(monkeypatch, tmp_path):
+    monkeypatch.setenv("CHATARCH_HOME", str(tmp_path))
+    for key in ("CHATDNS_PROVIDER",):
+        monkeypatch.delenv(key, raising=False)
+
+
 def test_dns_help_commands():
     runner = CliRunner()
     for args in [
@@ -23,7 +36,48 @@ def test_dns_help_commands():
         assert result.exit_code == 0, result.output
 
 
-def test_ddns_full_domain_argument_parsing():
+def test_list_uses_chatdns_default_provider_from_chatenv(tmp_path):
+    _write_env(tmp_path, "ChatDNS", ".env", "CHATDNS_PROVIDER='tencent'\n")
+    runner = CliRunner()
+    with patch("chatdns.cli.create_dns_client") as mock_factory:
+        client = mock_factory.return_value
+        client.describe_domains.return_value = []
+        result = runner.invoke(main, ["--chatarch-home", str(tmp_path), "list"])
+
+    assert result.exit_code == 0, result.output
+    assert mock_factory.call_args.args[0] == "tencent"
+
+
+def test_global_env_profile_selects_named_provider_profile(tmp_path):
+    _write_env(tmp_path, "Tencent", "work.env", "TENCENT_SECRET_ID='sid'\nTENCENT_SECRET_KEY='skey'\n")
+    runner = CliRunner()
+    with patch("chatdns.cli.create_dns_client") as mock_factory:
+        client = mock_factory.return_value
+        client.describe_domains.return_value = []
+        result = runner.invoke(
+            main,
+            ["--chatarch-home", str(tmp_path), "--env", "work", "list", "-p", "tencent"],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert mock_factory.call_args.args[0] == "tencent"
+    assert mock_factory.call_args.kwargs["env_profile"] == "work"
+    assert mock_factory.call_args.kwargs["chatarch_home"] == str(tmp_path)
+
+
+def test_global_env_profile_errors_when_provider_profile_missing(tmp_path):
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        ["--chatarch-home", str(tmp_path), "--env", "missing", "list", "-p", "aliyun"],
+    )
+
+    assert result.exit_code != 0
+    assert "profile 'missing' not found for Aliyun" in result.output
+
+
+def test_ddns_full_domain_argument_parsing(monkeypatch, tmp_path):
+    monkeypatch.setenv("CHATARCH_HOME", str(tmp_path))
     runner = CliRunner()
     with patch("chatdns.cli.DynamicIPUpdater") as mock_updater:
         instance = mock_updater.return_value

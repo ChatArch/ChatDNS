@@ -12,7 +12,7 @@ license = "MIT"
 dependencies = [
     "click>=8.0",
     "chatstyle>=0.1.0,<0.2.0",
-    "chatenv>=0.2.0,<0.3.0",
+    "chatenv>=0.2.2,<0.3.0",
     "aiohttp>=3.8",
     "netifaces",
     "alibabacloud_alidns20150109>=3.5.10",

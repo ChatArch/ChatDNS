@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2 - 2026-07-06
+
+- Load ChatDNS ChatEnv active profiles automatically for CLI/API DNS client creation.
+- Add `CHATDNS_PROVIDER` as the ChatEnv default provider/channel setting.
+- Add global `chatdns --env/-e PROFILE` support for selecting named provider profiles.
+- Raise the ChatEnv dependency floor to `chatenv>=0.2.2,<0.3.0`.
+
 ## 0.1.1 - 2026-06-26
 
 - Move the old `chattool dns cert` / DNS-01 certificate boundary into ChatDNS as `chatdns cert`.
