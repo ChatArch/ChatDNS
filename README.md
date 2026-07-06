@@ -20,6 +20,7 @@ ChatDNS is a ChatArch DNS helper extracted from ChatTool. It provides a standalo
 chatdns --help
 chatdns list
 chatdns --env work list --provider tencent
+chatdns list --provider tencent --env work
 chatdns records example.com
 chatdns records test.example.com
 chatdns set test.example.com -t A -v 1.2.3.4
@@ -48,7 +49,7 @@ ChatDNS reads provider credentials and defaults from environment / ChatEnv-compa
 - `TENCENT_SECRET_KEY`
 - `TENCENT_REGION_ID`
 
-Active ChatEnv profiles are loaded automatically from `$CHATARCH_HOME/envs` (default: `~/.chatarch/envs`). Use the global `--env/-e` option before the command to select a named provider profile, for example `chatdns --env work list -p tencent`.
+Active ChatEnv profiles are loaded automatically from `$CHATARCH_HOME/envs` (default: `~/.chatarch/envs`). Use `--env/-e` to select a named provider profile, either globally before the command (`chatdns --env work list -p tencent`) or on DNS commands after the provider (`chatdns list -p tencent -e work`). Command-level `--env/-e` overrides the global value. `chatdns cert apply` keeps `-e` for email, so use `--env work` there.
 
 Provider aliases are registered through the package's `chatenv.configs` entry point as `chatdns.config`.
 
