@@ -65,6 +65,49 @@ def test_global_env_profile_selects_named_provider_profile(tmp_path):
     assert mock_factory.call_args.kwargs["chatarch_home"] == str(tmp_path)
 
 
+def test_command_env_profile_selects_named_provider_profile(tmp_path):
+    _write_env(tmp_path, "Tencent", "work.env", "TENCENT_SECRET_ID='sid'\nTENCENT_SECRET_KEY='skey'\n")
+    runner = CliRunner()
+    with patch("chatdns.cli.create_dns_client") as mock_factory:
+        client = mock_factory.return_value
+        client.describe_domains.return_value = []
+        result = runner.invoke(
+            main,
+            ["--chatarch-home", str(tmp_path), "list", "-p", "tencent", "-e", "work"],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert mock_factory.call_args.args[0] == "tencent"
+    assert mock_factory.call_args.kwargs["env_profile"] == "work"
+    assert mock_factory.call_args.kwargs["chatarch_home"] == str(tmp_path)
+
+
+def test_command_env_profile_overrides_global_profile(tmp_path):
+    _write_env(tmp_path, "Tencent", "work.env", "TENCENT_SECRET_ID='sid'\nTENCENT_SECRET_KEY='skey'\n")
+    _write_env(tmp_path, "Tencent", "prod.env", "TENCENT_SECRET_ID='prod-sid'\nTENCENT_SECRET_KEY='prod-skey'\n")
+    runner = CliRunner()
+    with patch("chatdns.cli.create_dns_client") as mock_factory:
+        client = mock_factory.return_value
+        client.describe_domains.return_value = []
+        result = runner.invoke(
+            main,
+            [
+                "--chatarch-home",
+                str(tmp_path),
+                "--env",
+                "prod",
+                "list",
+                "-p",
+                "tencent",
+                "-e",
+                "work",
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert mock_factory.call_args.kwargs["env_profile"] == "work"
+
+
 def test_global_env_profile_errors_when_provider_profile_missing(tmp_path):
     runner = CliRunner()
     result = runner.invoke(

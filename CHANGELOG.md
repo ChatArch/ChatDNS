@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3 - 2026-07-07
+
+- Add command-level `--env/-e PROFILE` support for DNS provider commands such as `chatdns list -p tencent -e work`.
+- Keep global `chatdns --env/-e PROFILE ...` support and let command-level env selection override it.
+- Add `chatdns cert apply --env PROFILE`; `-e` remains reserved for Let's Encrypt email on certificate commands.
+
 ## 0.1.2 - 2026-07-06
 
 - Load ChatDNS ChatEnv active profiles automatically for CLI/API DNS client creation.

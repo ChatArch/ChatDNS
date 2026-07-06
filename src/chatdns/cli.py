@@ -26,6 +26,12 @@ from .env import load_chatenv
 
 PROVIDER_CHOICE = click.Choice(["aliyun", "tencent"])
 PROVIDER_HELP = "DNS提供商；未提供时读取 ChatEnv CHATDNS_PROVIDER，默认 aliyun"
+ENV_PROFILE_HELP = "ChatEnv profile name for the selected provider credentials."
+
+
+def _env_profile_option(short: bool = True):
+    params = ("--env", "-e", "env_profile") if short else ("--env", "env_profile")
+    return click.option(*params, help=ENV_PROFILE_HELP)
 
 
 # CLI 接口
@@ -71,6 +77,11 @@ def cli(ctx, env_profile, chatarch_home):
 
 def _env_profile(ctx: click.Context) -> str | None:
     return (ctx.obj or {}).get("env_profile")
+
+
+def _set_env_profile(ctx: click.Context, env_profile: str | None) -> None:
+    if env_profile:
+        ctx.obj["env_profile"] = env_profile
 
 
 def _chatarch_home(ctx: click.Context) -> str | None:
@@ -350,9 +361,11 @@ def _get_local_ip(local_ip_cidr=None):
 @click.option(
     "--page-size", default=20, show_default=True, help="每页数量，具体上限由云厂商决定"
 )
+@_env_profile_option()
 @click.pass_context
-def list_domains(ctx, provider, page_number, page_size):
+def list_domains(ctx, provider, page_number, page_size, env_profile):
     """List DNS domains in the provider account."""
+    _set_env_profile(ctx, env_profile)
     logger = setup_logger("dns_list", log_level="INFO", format_type="simple")
     try:
         provider, client = _create_dns_client(ctx, provider, logger)
@@ -424,6 +437,7 @@ def show_ip(ip_type, local_ip_cidr):
     type=PROVIDER_CHOICE,
     help=PROVIDER_HELP,
 )
+@_env_profile_option()
 @add_interactive_option
 @click.pass_context
 def ddns(
@@ -441,6 +455,7 @@ def ddns(
     ip_type,
     local_ip_cidr,
     provider,
+    env_profile,
     interactive,
 ):
     """Run dynamic DNS updates once or in continuous monitoring mode.
@@ -453,6 +468,7 @@ def ddns(
        chatdns ddns -d rexwang.site -r public
     """
     record_type = "A"
+    _set_env_profile(ctx, env_profile)
 
     domain, rr = _resolve_domain_inputs(full_domain, domain, rr)
     inputs = resolve_command_inputs(
@@ -537,15 +553,17 @@ def ddns(
     type=PROVIDER_CHOICE,
     help=PROVIDER_HELP,
 )
+@_env_profile_option()
 @add_interactive_option
 @click.pass_context
-def set_record(ctx, full_domain, domain, rr, record_type, value, ttl, provider, interactive):
+def set_record(ctx, full_domain, domain, rr, record_type, value, ttl, provider, env_profile, interactive):
     """Create or update a DNS record.
 
     支持:
     1. 完整域名: chatdns set test.example.com -v 1.2.3.4
     2. 分开指定: chatdns set -d example.com -r test -v 1.2.3.4
     """
+    _set_env_profile(ctx, env_profile)
     domain, rr = _resolve_domain_inputs(full_domain, domain, rr)
     inputs = resolve_command_inputs(
         schema=DNS_SET_SCHEMA,
@@ -588,9 +606,10 @@ def set_record(ctx, full_domain, domain, rr, record_type, value, ttl, provider, 
     type=PROVIDER_CHOICE,
     help=PROVIDER_HELP,
 )
+@_env_profile_option()
 @add_interactive_option
 @click.pass_context
-def records(ctx, target, domain, rr, record_type, provider, interactive):
+def records(ctx, target, domain, rr, record_type, provider, env_profile, interactive):
     """Show DNS record details.
 
     支持:
@@ -598,6 +617,7 @@ def records(ctx, target, domain, rr, record_type, provider, interactive):
     2. 完整域名: chatdns records test.example.com
     3. 分开指定: chatdns records -d example.com -r test
     """
+    _set_env_profile(ctx, env_profile)
     domain, rr = _resolve_records_inputs(target, domain, rr)
     inputs = resolve_command_inputs(
         schema=DNS_RECORDS_SCHEMA,
@@ -638,10 +658,12 @@ def records(ctx, target, domain, rr, record_type, provider, interactive):
     type=PROVIDER_CHOICE,
     help=PROVIDER_HELP,
 )
+@_env_profile_option()
 @add_interactive_option
 @click.pass_context
-def delete_record(ctx, full_domain, domain, rr, record_type, value, yes, provider, interactive):
+def delete_record(ctx, full_domain, domain, rr, record_type, value, yes, provider, env_profile, interactive):
     """Delete DNS records by domain, host record, type, and optional value."""
+    _set_env_profile(ctx, env_profile)
     domain, rr = _resolve_domain_inputs(full_domain, domain, rr)
     inputs = resolve_command_inputs(
         schema=DNS_DELETE_SCHEMA,
@@ -717,6 +739,7 @@ def cert_group():
     type=PROVIDER_CHOICE,
     help=PROVIDER_HELP,
 )
+@_env_profile_option(short=False)
 @click.option("--cert-dir", default="certs", show_default=True, help="Certificate output directory.")
 @click.option("--staging", is_flag=True, help="Use Let's Encrypt staging directory.")
 @click.option("--force", is_flag=True, help="Force renewal/application even if local cert is still valid.")
@@ -724,8 +747,9 @@ def cert_group():
 @click.option("--log-level", default="INFO", show_default=True, help="Log level.")
 @add_interactive_option
 @click.pass_context
-def cert_apply(ctx, domains, email, provider, cert_dir, staging, force, log_file, log_level, interactive):
+def cert_apply(ctx, domains, email, provider, env_profile, cert_dir, staging, force, log_file, log_level, interactive):
     """Apply or renew certificates using ACME DNS-01 validation."""
+    _set_env_profile(ctx, env_profile)
     provided_domains = list(domains)
     if not provided_domains and interactive is not False and is_interactive_available():
         answer = resolve_command_inputs(

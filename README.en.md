@@ -20,6 +20,7 @@ ChatDNS 是从 ChatTool 分离出来的 ChatArch DNS helper。它提供独立 `c
 chatdns --help
 chatdns list
 chatdns --env work list --provider tencent
+chatdns list --provider tencent --env work
 chatdns records example.com
 chatdns records test.example.com
 chatdns set test.example.com -t A -v 1.2.3.4
@@ -48,7 +49,7 @@ ChatDNS 通过环境变量 / ChatEnv-compatible config 字段读取 provider 凭
 - `TENCENT_SECRET_KEY`
 - `TENCENT_REGION_ID`
 
-ChatDNS 会自动加载 `$CHATARCH_HOME/envs`（默认 `~/.chatarch/envs`）下的 active ChatEnv profile。使用全局 `--env/-e` 选项可切换 named provider profile，例如 `chatdns --env work list -p tencent`。
+ChatDNS 会自动加载 `$CHATARCH_HOME/envs`（默认 `~/.chatarch/envs`）下的 active ChatEnv profile。使用 `--env/-e` 可切换 named provider profile：既可以放在全局位置（`chatdns --env work list -p tencent`），也可以放在 DNS 命令上跟随 provider 使用（`chatdns list -p tencent -e work`）。命令级 `--env/-e` 会覆盖全局值。`chatdns cert apply` 的 `-e` 保留给 email，因此证书命令使用 `--env work`。
 
 包通过 `chatenv.configs` entry point 注册 `chatdns.config`。
 
