@@ -42,6 +42,7 @@ Certificate management from the old `chattool dns cert` surface is now available
 ChatDNS reads provider credentials and defaults from environment / ChatEnv-compatible config fields:
 
 - `CHATDNS_PROVIDER` (default DNS provider/channel: `aliyun` or `tencent`)
+- `CHATDNS_CERT_DIR` (certificate storage directory; defaults to `$CHATARCH_HOME/certs`)
 - `ALIBABA_CLOUD_ACCESS_KEY_ID`
 - `ALIBABA_CLOUD_ACCESS_KEY_SECRET`
 - `ALIBABA_CLOUD_REGION_ID`
@@ -50,6 +51,8 @@ ChatDNS reads provider credentials and defaults from environment / ChatEnv-compa
 - `TENCENT_REGION_ID`
 
 Active ChatEnv profiles are loaded automatically from `$CHATARCH_HOME/envs` (default: `~/.chatarch/envs`). Use `--env/-e` to select a named provider profile, either globally before the command (`chatdns --env work list -p tencent`) or on DNS commands after the provider (`chatdns list -p tencent -e work`). Command-level `--env/-e` overrides the global value. `chatdns cert apply` keeps `-e` for email, so use `--env work` there.
+
+Certificate paths use this precedence: explicit `--cert-dir` / Python `cert_dir`, then ChatEnv `CHATDNS_CERT_DIR`, then `$CHATARCH_HOME/certs`. This keeps wildcard and SAN certificate groups inside the ChatArch-managed home by default while preserving an explicit per-command override.
 
 Provider aliases are registered through the package's `chatenv.configs` entry point as `chatdns.config`.
 

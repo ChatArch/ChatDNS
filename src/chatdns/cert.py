@@ -15,6 +15,7 @@ from pathlib import Path
 
 from .logging_utils import setup_logger
 from .utils import create_dns_client, DNSClientType
+from .env import load_chatdns_config, resolve_cert_dir
 
 from .acme_dns_tiny import get_crt
 
@@ -62,13 +63,15 @@ class SSLCertUpdater:
     def __init__(self,
                  domains: List[str],
                  email: str,
-                 cert_dir: str = "certs",
+                 cert_dir: str | Path | None = None,
                  staging: bool = False,
                  force: bool = False,
                  logger=None,
                  log_file: Optional[str] = None,
                  dns_type: Union[DNSClientType, str]='aliyun',
                  dns_client=None,
+                 env_profile: Optional[str] = None,
+                 chatarch_home: str | Path | None = None,
                  **dns_client_kwargs
         ):
         """
@@ -77,18 +80,22 @@ class SSLCertUpdater:
         Args:
             domains: 域名列表
             email: Let's Encrypt账户邮箱
-            cert_dir: 证书存储目录
+            cert_dir: 证书存储目录；未提供时读取 CHATDNS_CERT_DIR，再回退到 CHATARCH_HOME/certs
             staging: 是否使用Let's Encrypt测试环境
             force: 是否跳过本地证书过期判断，强制申请/续期
             logger: 日志记录器
             log_file: 日志文件路径 (如果未提供 logger 且需要文件日志)
             dns_type: DNS客户端类型
             dns_client: 可选的已初始化 DNS 客户端（主要用于测试或本地 check 路径）
+            env_profile: 可选 ChatEnv profile 名称
+            chatarch_home: 可选 CHATARCH_HOME 覆盖路径
             dns_client_kwargs: DNS客户端初始化参数
         """
         self.domains = [normalize_certificate_domain(domain) for domain in domains]
         self.email = email
-        self.cert_dir = Path(cert_dir).expanduser()
+        if cert_dir is None:
+            load_chatdns_config(env_profile=env_profile, home=chatarch_home)
+        self.cert_dir = resolve_cert_dir(cert_dir, home=chatarch_home)
         self.cert_dir.mkdir(parents=True, exist_ok=True)
         self.cert_dir = self.cert_dir.resolve()
         self.staging = staging
@@ -97,7 +104,11 @@ class SSLCertUpdater:
 
         # 初始化DNS客户端
         self.dns_client = dns_client or create_dns_client(
-            dns_type, logger=self.logger, **dns_client_kwargs
+            dns_type,
+            env_profile=env_profile,
+            chatarch_home=chatarch_home,
+            logger=self.logger,
+            **dns_client_kwargs,
         )
 
         # Let's Encrypt服务器URL

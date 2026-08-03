@@ -1,4 +1,5 @@
 from enum import Enum
+from pathlib import Path
 from typing import Union, Optional
 
 from .aliyun import AliyunDNSClient
@@ -13,7 +14,7 @@ def create_dns_client(
     dns_type: Optional[Union[DNSClientType, str]] = None,
     *,
     env_profile: str | None = None,
-    chatarch_home: str | None = None,
+    chatarch_home: str | Path | None = None,
     **kwargs,
 ):
     """

@@ -21,7 +21,7 @@ from chatstyle import (
 from .logging_utils import setup_logger
 from . import __version__, DynamicIPUpdater, create_dns_client
 from .domain_utils import split_full_domain
-from .env import load_chatenv
+from .env import load_chatenv, load_chatdns_config, resolve_cert_dir
 
 
 PROVIDER_CHOICE = click.Choice(["aliyun", "tencent"])
@@ -740,7 +740,11 @@ def cert_group():
     help=PROVIDER_HELP,
 )
 @_env_profile_option(short=False)
-@click.option("--cert-dir", default="certs", show_default=True, help="Certificate output directory.")
+@click.option(
+    "--cert-dir",
+    default=None,
+    help="Certificate output directory; defaults to CHATDNS_CERT_DIR or $CHATARCH_HOME/certs.",
+)
 @click.option("--staging", is_flag=True, help="Use Let's Encrypt staging directory.")
 @click.option("--force", is_flag=True, help="Force renewal/application even if local cert is still valid.")
 @click.option("--log-file", default=None, help="Optional detailed log file path.")
@@ -800,6 +804,7 @@ def cert_apply(ctx, domains, email, provider, env_profile, cert_dir, staging, fo
         format_type="detailed" if log_file else "simple",
     )
     provider = _resolve_provider(ctx, provider)
+    cert_dir = str(resolve_cert_dir(cert_dir, home=_chatarch_home(ctx)))
     updater = SSLCertUpdater(
         domains=provided_domains,
         email=email,
@@ -819,7 +824,11 @@ def cert_apply(ctx, domains, email, provider, env_profile, cert_dir, staging, fo
 
 @cert_group.command(name="check")
 @click.argument("domains", nargs=-1)
-@click.option("--cert-dir", default="certs", show_default=True, help="Certificate directory.")
+@click.option(
+    "--cert-dir",
+    default=None,
+    help="Certificate directory; defaults to CHATDNS_CERT_DIR or $CHATARCH_HOME/certs.",
+)
 @click.option(
     "--provider",
     "-p",
@@ -827,13 +836,16 @@ def cert_apply(ctx, domains, email, provider, env_profile, cert_dir, staging, fo
     type=PROVIDER_CHOICE,
     help=PROVIDER_HELP,
 )
-def cert_check(domains, cert_dir, provider):
+@click.pass_context
+def cert_check(ctx, domains, cert_dir, provider):
     """Check local certificate expiry for one or more domains."""
     if not domains:
         raise click.ClickException("请提供至少一个域名，例如: chatdns cert check example.com")
 
     from .cert import SSLCertUpdater
 
+    load_chatdns_config(env_profile=_env_profile(ctx), home=_chatarch_home(ctx))
+    cert_dir = str(resolve_cert_dir(cert_dir, home=_chatarch_home(ctx)))
     logger = setup_logger("chatdns_cert_check", log_level="INFO", format_type="simple")
     updater = SSLCertUpdater(
         domains=list(domains),

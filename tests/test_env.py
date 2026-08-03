@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from chatdns.config import AliyunConfig, ChatDNSConfig, TencentConfig
-from chatdns.env import load_chatenv
+from chatdns.env import load_chatenv, resolve_cert_dir
 
 
 def _write_env(home: Path, storage: str, filename: str, content: str) -> None:
@@ -16,6 +16,7 @@ def _write_env(home: Path, storage: str, filename: str, content: str) -> None:
 def clear_provider_env(monkeypatch):
     for key in (
         "CHATARCH_HOME",
+        "CHATDNS_CERT_DIR",
         "CHATDNS_PROVIDER",
     ):
         monkeypatch.delenv(key, raising=False)
@@ -73,3 +74,32 @@ def test_load_chatenv_uses_chatenv_env_field(monkeypatch, tmp_path):
     monkeypatch.setenv("CHATDNS_PROVIDER", "tencent")
 
     assert load_chatenv(home=tmp_path) == "tencent"
+
+
+def test_resolve_cert_dir_prefers_explicit_value(tmp_path):
+    _write_env(tmp_path, "ChatDNS", ".env", "CHATDNS_CERT_DIR='/profile/certs'\n")
+    load_chatenv(home=tmp_path)
+
+    assert resolve_cert_dir("~/explicit-certs", home=tmp_path) == Path(
+        "~/explicit-certs"
+    ).expanduser()
+
+
+def test_resolve_cert_dir_uses_chatdns_chatenv_value(tmp_path):
+    configured = tmp_path / "managed-certs"
+    _write_env(
+        tmp_path,
+        "ChatDNS",
+        ".env",
+        f"CHATDNS_CERT_DIR='{configured}'\n",
+    )
+    load_chatenv(home=tmp_path)
+
+    assert resolve_cert_dir(home=tmp_path) == configured
+    assert ChatDNSConfig.CHATDNS_CERT_DIR.value == str(configured)
+
+
+def test_resolve_cert_dir_defaults_inside_chatarch_home(tmp_path):
+    load_chatenv(home=tmp_path)
+
+    assert resolve_cert_dir(home=tmp_path) == tmp_path.resolve() / "certs"

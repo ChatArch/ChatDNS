@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from click.testing import CliRunner
 from unittest.mock import AsyncMock, patch
@@ -7,6 +9,18 @@ from chatdns.cert import SSLCertUpdater, normalize_certificate_domain, split_pem
 
 
 _DEFAULT_ADD_RESULT = object()
+
+
+def _write_env(home: Path, storage: str, filename: str, content: str) -> None:
+    path = home / "envs" / storage / filename
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+
+
+@pytest.fixture(autouse=True)
+def isolated_chatarch_home(monkeypatch, tmp_path):
+    monkeypatch.setenv("CHATARCH_HOME", str(tmp_path / "chatarch"))
+    monkeypatch.delenv("CHATDNS_CERT_DIR", raising=False)
 
 
 class FakeDNSClient:
@@ -67,6 +81,81 @@ def test_cert_apply_invokes_ssl_updater_without_live_acme():
     assert kwargs["staging"] is True
     assert kwargs["force"] is True
     updater.run_once.assert_awaited_once()
+
+
+def test_cert_help_documents_chatarch_managed_default():
+    for command in (["cert", "apply", "--help"], ["cert", "check", "--help"]):
+        result = CliRunner().invoke(main, command)
+        assert result.exit_code == 0, result.output
+        assert "CHATDNS_CERT_DIR or $CHATARCH_HOME/certs" in result.output
+
+
+def test_cert_apply_uses_chatenv_cert_dir(tmp_path):
+    configured = tmp_path / "central-certs"
+    _write_env(
+        tmp_path,
+        "ChatDNS",
+        ".env",
+        f"CHATDNS_CERT_DIR='{configured}'\n",
+    )
+    runner = CliRunner()
+    with patch("chatdns.cert.SSLCertUpdater") as updater_cls:
+        updater_cls.return_value.run_once = AsyncMock(return_value=True)
+        result = runner.invoke(
+            main,
+            [
+                "--chatarch-home",
+                str(tmp_path),
+                "cert",
+                "apply",
+                "-d",
+                "*.example.com",
+                "-e",
+                "admin@example.com",
+                "--provider",
+                "tencent",
+                "-I",
+            ],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0, result.output
+    assert updater_cls.call_args.kwargs["cert_dir"] == str(configured)
+
+
+def test_cert_check_defaults_inside_overridden_chatarch_home(tmp_path):
+    runner = CliRunner()
+    with patch("chatdns.cert.SSLCertUpdater") as updater_cls:
+        updater_cls.return_value.check_cert_expiry.return_value = None
+        result = runner.invoke(
+            main,
+            ["--chatarch-home", str(tmp_path), "cert", "check", "example.com"],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0, result.output
+    assert updater_cls.call_args.kwargs["cert_dir"] == str(tmp_path / "certs")
+
+
+def test_ssl_updater_uses_chatenv_cert_dir_for_python_api(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    chatarch_home = tmp_path / "chatarch"
+    configured = tmp_path / "api-certs"
+    _write_env(
+        chatarch_home,
+        "ChatDNS",
+        ".env",
+        f"CHATDNS_CERT_DIR='{configured}'\n",
+    )
+
+    updater = SSLCertUpdater(
+        domains=["*.example.com"],
+        email="admin@example.com",
+        dns_client=FakeDNSClient(),
+        chatarch_home=chatarch_home,
+    )
+
+    assert updater.cert_dir == configured.resolve()
 
 
 def test_cert_apply_requires_domain_in_non_interactive_mode():

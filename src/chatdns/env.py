@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -59,6 +60,32 @@ def _maybe_load_profile(store: EnvStore, config_cls: type, profile: str) -> dict
     return values
 
 
+def load_chatdns_config(
+    *,
+    env_profile: str | None = None,
+    home: str | Path | None = None,
+) -> dict[str, str]:
+    """Load ChatDNS defaults without requiring provider credentials."""
+    paths = get_paths(home)
+    store = EnvStore(paths.envs_dir)
+    values = _load_config(store, ChatDNSConfig)
+    if env_profile:
+        values.update(_maybe_load_profile(store, ChatDNSConfig, env_profile))
+    return values
+
+
+def resolve_cert_dir(
+    cert_dir: str | Path | None = None,
+    *,
+    home: str | Path | None = None,
+) -> Path:
+    """Resolve explicit, ChatEnv-managed, or ChatArch-default certificate storage."""
+    selected = cert_dir if cert_dir is not None else ChatDNSConfig.CHATDNS_CERT_DIR.value
+    if selected is not None and str(selected).strip():
+        return Path(os.path.expandvars(str(selected))).expanduser()
+    return get_paths(home).home_dir / "certs"
+
+
 def load_chatenv(
     provider: Any | None = None,
     *,
@@ -73,12 +100,9 @@ def load_chatenv(
     paths = get_paths(home)
     store = EnvStore(paths.envs_dir)
 
-    _load_config(store, ChatDNSConfig)
+    load_chatdns_config(env_profile=env_profile, home=home)
     _load_config(store, AliyunConfig)
     _load_config(store, TencentConfig)
-
-    if env_profile:
-        _maybe_load_profile(store, ChatDNSConfig, env_profile)
 
     selected_provider = normalize_provider(provider or ChatDNSConfig.CHATDNS_PROVIDER.value)
 
