@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from chatdns.config import AliyunConfig, ChatDNSConfig, TencentConfig
-from chatdns.env import load_chatenv
+from chatdns.env import load_chatdns_config, load_chatenv, resolve_cert_dir
 
 
 def _write_env(home: Path, storage: str, filename: str, content: str) -> None:
@@ -16,6 +16,7 @@ def _write_env(home: Path, storage: str, filename: str, content: str) -> None:
 def clear_provider_env(monkeypatch):
     for key in (
         "CHATARCH_HOME",
+        "CHATDNS_CERT_DIR",
         "CHATDNS_PROVIDER",
     ):
         monkeypatch.delenv(key, raising=False)
@@ -73,3 +74,85 @@ def test_load_chatenv_uses_chatenv_env_field(monkeypatch, tmp_path):
     monkeypatch.setenv("CHATDNS_PROVIDER", "tencent")
 
     assert load_chatenv(home=tmp_path) == "tencent"
+
+
+def test_resolve_cert_dir_prefers_explicit_value(tmp_path):
+    _write_env(tmp_path, "ChatDNS", ".env", "CHATDNS_CERT_DIR='/profile/certs'\n")
+    load_chatenv(home=tmp_path)
+
+    assert resolve_cert_dir("~/explicit-certs", home=tmp_path) == Path(
+        "~/explicit-certs"
+    ).expanduser()
+
+
+def test_resolve_cert_dir_uses_chatdns_chatenv_value(tmp_path):
+    configured = tmp_path / "managed-certs"
+    _write_env(
+        tmp_path,
+        "ChatDNS",
+        ".env",
+        f"CHATDNS_CERT_DIR='{configured}'\n",
+    )
+    load_chatenv(home=tmp_path)
+
+    assert resolve_cert_dir(home=tmp_path) == configured
+    assert ChatDNSConfig.CHATDNS_CERT_DIR.value == str(configured)
+
+
+def test_resolve_cert_dir_defaults_inside_chatarch_home(tmp_path):
+    load_chatenv(home=tmp_path)
+
+    assert resolve_cert_dir(home=tmp_path) == tmp_path.resolve() / "certs"
+
+
+def test_resolve_cert_dir_expands_effective_home_not_ambient_home(
+    monkeypatch, tmp_path
+):
+    ambient_home = tmp_path / "ambient"
+    selected_home = tmp_path / "selected"
+    monkeypatch.setenv("CHATARCH_HOME", str(ambient_home))
+    _write_env(
+        selected_home,
+        "ChatDNS",
+        ".env",
+        "CHATDNS_CERT_DIR='$CHATARCH_HOME/certificates'\n",
+    )
+
+    load_chatdns_config(home=selected_home)
+
+    assert resolve_cert_dir(home=selected_home) == selected_home.resolve() / "certificates"
+
+
+def test_resolve_cert_dir_uses_named_chatdns_profile_with_selected_home(tmp_path):
+    selected_home = tmp_path / "selected"
+    _write_env(
+        selected_home,
+        "ChatDNS",
+        ".env",
+        "CHATDNS_CERT_DIR='/active/certificates'\n",
+    )
+    _write_env(
+        selected_home,
+        "ChatDNS",
+        "work.env",
+        "CHATDNS_CERT_DIR='$CHATARCH_HOME/work-certificates'\n",
+    )
+
+    load_chatdns_config(env_profile="work", home=selected_home)
+
+    assert resolve_cert_dir(home=selected_home) == (
+        selected_home.resolve() / "work-certificates"
+    )
+
+
+def test_resolve_cert_dir_rejects_unknown_environment_variable(tmp_path):
+    _write_env(
+        tmp_path,
+        "ChatDNS",
+        ".env",
+        "CHATDNS_CERT_DIR='$CHATDNS_UNKNOWN_ROOT/certificates'\n",
+    )
+    load_chatdns_config(home=tmp_path)
+
+    with pytest.raises(ValueError, match="CHATDNS_UNKNOWN_ROOT"):
+        resolve_cert_dir(home=tmp_path)

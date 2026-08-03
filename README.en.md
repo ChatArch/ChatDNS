@@ -5,7 +5,7 @@
     <a href="https://github.com/ChatArch/ChatDNS/actions/workflows/ci.yml">
         <img src="https://github.com/ChatArch/ChatDNS/actions/workflows/ci.yml/badge.svg" alt="Tests" />
     </a>
-    <a href="https://ChatArch.github.io/ChatDNS">
+    <a href="https://arch.gh.wzhecnu.cn/chatdns/">
         <img src="https://img.shields.io/badge/docs-latest-blue.svg" alt="Docs" />
     </a>
 </p>
@@ -42,6 +42,7 @@ chatdns cert check example.com
 ChatDNS 通过环境变量 / ChatEnv-compatible config 字段读取 provider 凭证和默认渠道：
 
 - `CHATDNS_PROVIDER`（默认 DNS provider/channel: `aliyun` 或 `tencent`）
+- `CHATDNS_CERT_DIR`（证书存储目录；默认 `$CHATARCH_HOME/certs`）
 - `ALIBABA_CLOUD_ACCESS_KEY_ID`
 - `ALIBABA_CLOUD_ACCESS_KEY_SECRET`
 - `ALIBABA_CLOUD_REGION_ID`
@@ -50,6 +51,10 @@ ChatDNS 通过环境变量 / ChatEnv-compatible config 字段读取 provider 凭
 - `TENCENT_REGION_ID`
 
 ChatDNS 会自动加载 `$CHATARCH_HOME/envs`（默认 `~/.chatarch/envs`）下的 active ChatEnv profile。使用 `--env/-e` 可切换 named provider profile：既可以放在全局位置（`chatdns --env work list -p tencent`），也可以放在 DNS 命令上跟随 provider 使用（`chatdns list -p tencent -e work`）。命令级 `--env/-e` 会覆盖全局值。`chatdns cert apply` 的 `-e` 保留给 email，因此证书命令使用 `--env work`。
+
+证书目录优先级为：显式 `--cert-dir` / Python `cert_dir`，其次是 ChatEnv `CHATDNS_CERT_DIR`，最后回退到 `$CHATARCH_HOME/certs`。泛解析与 SAN 证书因此默认集中保存在 ChatArch 内部，同时仍可按命令显式覆盖。
+
+完整的自动创建目录、文件权限、多 SAN 续期、中央 managed-zone 分层与远端 Infra 边界见[证书目录与创建规则](https://arch.gh.wzhecnu.cn/chatdns/certificate-storage/)。
 
 包通过 `chatenv.configs` entry point 注册 `chatdns.config`。
 

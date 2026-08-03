@@ -15,6 +15,7 @@ from pathlib import Path
 
 from .logging_utils import setup_logger
 from .utils import create_dns_client, DNSClientType
+from .env import load_chatdns_config, resolve_cert_dir
 
 from .acme_dns_tiny import get_crt
 
@@ -62,13 +63,15 @@ class SSLCertUpdater:
     def __init__(self,
                  domains: List[str],
                  email: str,
-                 cert_dir: str = "certs",
+                 cert_dir: str | Path | None = None,
                  staging: bool = False,
                  force: bool = False,
                  logger=None,
                  log_file: Optional[str] = None,
                  dns_type: Union[DNSClientType, str]='aliyun',
                  dns_client=None,
+                 env_profile: Optional[str] = None,
+                 chatarch_home: str | Path | None = None,
                  **dns_client_kwargs
         ):
         """
@@ -77,27 +80,36 @@ class SSLCertUpdater:
         Args:
             domains: 域名列表
             email: Let's Encrypt账户邮箱
-            cert_dir: 证书存储目录
+            cert_dir: 证书存储目录；未提供时读取 CHATDNS_CERT_DIR，再回退到 CHATARCH_HOME/certs
             staging: 是否使用Let's Encrypt测试环境
             force: 是否跳过本地证书过期判断，强制申请/续期
             logger: 日志记录器
             log_file: 日志文件路径 (如果未提供 logger 且需要文件日志)
             dns_type: DNS客户端类型
             dns_client: 可选的已初始化 DNS 客户端（主要用于测试或本地 check 路径）
+            env_profile: 可选 ChatEnv profile 名称
+            chatarch_home: 可选 CHATARCH_HOME 覆盖路径
             dns_client_kwargs: DNS客户端初始化参数
         """
         self.domains = [normalize_certificate_domain(domain) for domain in domains]
         self.email = email
-        self.cert_dir = Path(cert_dir).expanduser()
+        if cert_dir is None:
+            load_chatdns_config(env_profile=env_profile, home=chatarch_home)
+        self.cert_dir = resolve_cert_dir(cert_dir, home=chatarch_home)
         self.cert_dir.mkdir(parents=True, exist_ok=True)
         self.cert_dir = self.cert_dir.resolve()
+        self.cert_dir.chmod(0o700)
         self.staging = staging
         self.force = force
         self.logger = logger or setup_logger(__name__, log_file=log_file)
 
         # 初始化DNS客户端
         self.dns_client = dns_client or create_dns_client(
-            dns_type, logger=self.logger, **dns_client_kwargs
+            dns_type,
+            env_profile=env_profile,
+            chatarch_home=chatarch_home,
+            logger=self.logger,
+            **dns_client_kwargs,
         )
 
         # Let's Encrypt服务器URL
@@ -178,6 +190,44 @@ class SSLCertUpdater:
             self.logger.info(f"域名 {domain} 证书暂不需要续期")
             return False
 
+    def certificate_covers_domains(self, primary_domain: str, domains: List[str]) -> bool:
+        """Return whether the stored primary certificate covers every requested SAN."""
+        from cryptography import x509
+        from cryptography.x509.oid import ExtensionOID
+
+        cert_file = self._domain_dir(primary_domain) / "fullchain.pem"
+        if not cert_file.is_file():
+            return False
+        try:
+            leaf_pem, _ = split_pem_chain(cert_file.read_text())
+            certificate = x509.load_pem_x509_certificate(leaf_pem.encode("utf-8"))
+            extension = certificate.extensions.get_extension_for_oid(
+                ExtensionOID.SUBJECT_ALTERNATIVE_NAME
+            ).value
+            if not isinstance(extension, x509.SubjectAlternativeName):
+                return False
+            names = extension.get_values_for_type(x509.DNSName)
+        except (OSError, ValueError, x509.ExtensionNotFound) as exc:
+            self.logger.warning(f"无法读取证书 SAN {primary_domain}: {exc}")
+            return False
+
+        expected = {normalize_certificate_domain(domain) for domain in domains}
+        actual = {normalize_certificate_domain(domain) for domain in names}
+        missing = sorted(expected - actual)
+        if missing:
+            self.logger.info(
+                f"域名组 {primary_domain} 的证书缺少 SAN: {', '.join(missing)}"
+            )
+            return False
+        return True
+
+    def needs_group_renewal(self, domains: List[str]) -> bool:
+        """Check one stored certificate for expiry and complete SAN coverage."""
+        primary_domain = domains[0]
+        return self.needs_renewal(primary_domain) or not self.certificate_covers_domains(
+            primary_domain, domains
+        )
+
     def extract_domain_from_fqdn(self, fqdn: str) -> str:
         """
         从FQDN中提取主域名
@@ -245,9 +295,7 @@ class SSLCertUpdater:
             self.logger.info(f"处理域名组: {main_domain} -> {domain_list}")
 
             # 检查是否需要续期
-            needs_update = self.force or any(
-                self.needs_renewal(domain) for domain in domain_list
-            )
+            needs_update = self.force or self.needs_group_renewal(domain_list)
             if self.force:
                 self.logger.info(f"域名组 {main_domain} 已启用强制申请/续期")
 
@@ -465,6 +513,7 @@ class SSLCertUpdater:
 
             # Save certificate and key in domain directory
             domain_dir.mkdir(parents=True, exist_ok=True)
+            domain_dir.chmod(0o700)
 
             # Save Private Key
             key_path = domain_dir / "privkey.pem"
@@ -475,6 +524,7 @@ class SSLCertUpdater:
             # Save Full Chain
             fullchain_path = domain_dir / "fullchain.pem"
             fullchain_path.write_text(crt_pem)
+            fullchain_path.chmod(0o644)
             self.logger.info(f"Full Chain saved to {fullchain_path}")
 
             # Split into cert and chain
@@ -482,10 +532,12 @@ class SSLCertUpdater:
                 leaf_cert, chain_cert = split_pem_chain(crt_pem)
                 cert_path = domain_dir / "cert.pem"
                 cert_path.write_text(leaf_cert)
+                cert_path.chmod(0o644)
                 self.logger.info(f"Cert saved to {cert_path}")
                 if chain_cert:
                     chain_path = domain_dir / "chain.pem"
                     chain_path.write_text(chain_cert)
+                    chain_path.chmod(0o644)
                     self.logger.info(f"Chain saved to {chain_path}")
             except Exception as e:
                 self.logger.warning(f"Failed to split certificate chain: {e}")

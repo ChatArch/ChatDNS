@@ -29,6 +29,14 @@ setattr(
         desc="Default provider/channel (aliyun or tencent)",
     ),
 )
+setattr(
+    ChatDNSConfig,
+    "CHATDNS_CERT_DIR",
+    EnvField(
+        "CHATDNS_CERT_DIR",
+        desc="Certificate directory (default: $CHATARCH_HOME/certs)",
+    ),
+)
 
 
 class AliyunConfig(BaseEnvConfig):

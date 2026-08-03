@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.4 - 2026-08-04
+
+- Add the ChatEnv-managed `CHATDNS_CERT_DIR` certificate-directory setting.
+- Default certificate storage to `$CHATARCH_HOME/certs` instead of a relative `certs/` directory.
+- Keep explicit `--cert-dir` / Python `cert_dir` values as the highest-priority override.
+- Apply the same directory resolution to `chatdns cert apply`, `chatdns cert check`, and `SSLCertUpdater`.
+- Expand `$CHATARCH_HOME` in configured paths against the effective `--chatarch-home` value.
+- Check one primary certificate per multi-SAN group and renew when SAN coverage is incomplete.
+- Document generated files, permissions, managed-zone layout, and the remote infrastructure boundary.
+
 ## 0.1.3 - 2026-07-07
 
 - Add command-level `--env/-e PROFILE` support for DNS provider commands such as `chatdns list -p tencent -e work`.
