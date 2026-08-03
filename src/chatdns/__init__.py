@@ -8,7 +8,7 @@ from .cert import SSLCertUpdater
 from .utils import DNSClientType, create_dns_client
 from .domain_utils import split_full_domain
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 
 __all__ = [
     "__version__",

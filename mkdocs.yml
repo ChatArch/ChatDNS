@@ -4,8 +4,34 @@ repo_url: https://github.com/ChatArch/ChatDNS
 theme:
   name: material
   language: zh
+plugins:
+  - search
+  - i18n:
+      docs_structure: suffix
+      fallback_to_default: true
+      reconfigure_material: true
+      reconfigure_search: true
+      languages:
+        - locale: zh
+          default: true
+          name: 中文
+          build: true
+          site_name: ChatDNS 文档
+        - locale: en
+          name: English
+          build: true
+          site_name: ChatDNS Documentation
+          nav_translations:
+            首页: Home
+            证书目录与创建规则: Certificate Storage
+extra:
+  alternate:
+    - name: 中文
+      link: /ChatDNS/
+      lang: zh
+    - name: English
+      link: /ChatDNS/en/
+      lang: en
 nav:
   - 首页: index.md
   - 证书目录与创建规则: certificate-storage.md
-  - English: index.en.md
-  - Certificate Storage: certificate-storage.en.md

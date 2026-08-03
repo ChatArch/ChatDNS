@@ -6,18 +6,30 @@ SSL 证书自动更新工具 - 基于 Let's Encrypt 和阿里云 DNS
 使用 Let's Encrypt 的 DNS-01 挑战验证方式自动申请和更新 SSL 证书。
 支持多域名，自动管理 DNS TXT 记录，生成 nginx 可用的证书文件。
 """
+
+import os
 import asyncio
+import hashlib
 import re
 import subprocess
+import tempfile
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import List, Dict, Optional, Union
 from pathlib import Path
+
+from chatenv.paths import get_paths
 
 from .logging_utils import setup_logger
 from .utils import create_dns_client, DNSClientType
 from .env import load_chatdns_config, resolve_cert_dir
 
 from .acme_dns_tiny import get_crt
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - certificate hosts are POSIX
+    fcntl = None
 
 # 证书相关配置
 ACME_CHALLENGE_TTL = 120                 # DNS挑战记录TTL
@@ -27,6 +39,7 @@ CERT_RENEWAL_DAYS = 30                   # 证书续期提前天数
 _DOMAIN_RE = re.compile(
     r"^(?:\*\.)?(?=.{1,253}$)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$"
 )
+_CERT_PATH_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,62}[A-Za-z0-9])?$")
 
 
 def normalize_certificate_domain(domain: str) -> str:
@@ -38,6 +51,22 @@ def normalize_certificate_domain(domain: str) -> str:
         raise ValueError(f"invalid domain name: {domain!r}")
     if not _DOMAIN_RE.match(normalized):
         raise ValueError(f"invalid domain name: {domain!r}")
+    return normalized
+
+
+def normalize_cert_path(cert_path: str) -> str:
+    """Validate one relative certificate-directory name."""
+    normalized = (cert_path or "").strip()
+    if not normalized or normalized in {".", ".."}:
+        raise ValueError("cert_path must be a non-empty relative directory name")
+    if Path(normalized).is_absolute() or any(
+        char in normalized for char in ("/", "\\", "\x00")
+    ):
+        raise ValueError(f"invalid cert_path: {cert_path!r}")
+    if not _CERT_PATH_RE.fullmatch(normalized):
+        raise ValueError(
+            "cert_path may contain only ASCII letters, digits, dots, underscores, and hyphens"
+        )
     return normalized
 
 
@@ -64,6 +93,8 @@ class SSLCertUpdater:
                  domains: List[str],
                  email: str,
                  cert_dir: str | Path | None = None,
+                 cert_path: str | None = None,
+                 acme_state_dir: str | Path | None = None,
                  staging: bool = False,
                  force: bool = False,
                  logger=None,
@@ -81,6 +112,8 @@ class SSLCertUpdater:
             domains: 域名列表
             email: Let's Encrypt账户邮箱
             cert_dir: 证书存储目录；未提供时读取 CHATDNS_CERT_DIR，再回退到 CHATARCH_HOME/certs
+            cert_path: 注册域名下的相对证书目录名；未提供时使用 default
+            acme_state_dir: ACME 状态目录；默认位于 CHATARCH_HOME/private/chatdns/acme
             staging: 是否使用Let's Encrypt测试环境
             force: 是否跳过本地证书过期判断，强制申请/续期
             logger: 日志记录器
@@ -99,6 +132,26 @@ class SSLCertUpdater:
         self.cert_dir.mkdir(parents=True, exist_ok=True)
         self.cert_dir = self.cert_dir.resolve()
         self.cert_dir.chmod(0o700)
+        self.cert_path = normalize_cert_path(cert_path) if cert_path is not None else None
+        explicit_state_dir = acme_state_dir is not None
+        selected_state_dir = acme_state_dir or (
+            get_paths(chatarch_home).home_dir / "private" / "chatdns" / "acme"
+        )
+        self.acme_state_dir = Path(selected_state_dir).expanduser().resolve()
+        try:
+            self.acme_state_dir.relative_to(self.cert_dir)
+        except ValueError:
+            pass
+        else:
+            if explicit_state_dir:
+                raise ValueError("acme_state_dir must be outside the certificate root")
+            self.acme_state_dir = (
+                self.cert_dir.parent / f".{self.cert_dir.name}.chatdns-private" / "acme"
+            ).resolve()
+        self.acme_state_dir.mkdir(parents=True, exist_ok=True)
+        self.acme_state_dir.chmod(0o700)
+        self._certificate_dir_cache: Dict[tuple[str, ...], Path] = {}
+        self._reserved_certificate_dirs: Dict[Path, tuple[str, ...]] = {}
         self.staging = staging
         self.force = force
         self.logger = logger or setup_logger(__name__, log_file=log_file)
@@ -122,18 +175,201 @@ class SSLCertUpdater:
         self.logger.info(f"域名: {', '.join(self.domains)}")
         self.logger.info(f"邮箱: {self.email}")
         self.logger.info(f"证书目录: {self.cert_dir}")
+        self.logger.info(f"证书相对目录: {self.cert_path or 'default'}")
         self.logger.info(f"环境: {'测试' if staging else '生产'}")
-
-    def _safe_file_domain_name(self, domain: str) -> str:
-        return normalize_certificate_domain(domain).replace("*", "_")
 
     def _path_in_cert_dir(self, *parts: str) -> Path:
         path = self.cert_dir.joinpath(*parts).resolve()
         path.relative_to(self.cert_dir)
         return path
 
+    @staticmethod
+    def _certificate_sans(directory: Path) -> Optional[set[str]]:
+        """Read the normalized SAN set from a stored certificate directory."""
+        from cryptography import x509
+        from cryptography.x509.oid import ExtensionOID
+
+        cert_file = directory / "fullchain.pem"
+        if not cert_file.is_file():
+            cert_file = directory / "cert.pem"
+        if not cert_file.is_file():
+            return None
+        try:
+            leaf_pem, _ = split_pem_chain(cert_file.read_text(encoding="utf-8"))
+            certificate = x509.load_pem_x509_certificate(leaf_pem.encode("utf-8"))
+            extension = certificate.extensions.get_extension_for_oid(
+                ExtensionOID.SUBJECT_ALTERNATIVE_NAME
+            ).value
+            if not isinstance(extension, x509.SubjectAlternativeName):
+                return None
+            names = extension.get_values_for_type(x509.DNSName)
+            return {normalize_certificate_domain(name) for name in names}
+        except (OSError, ValueError, x509.ExtensionNotFound):
+            return None
+
+    def _matches_cert_path_name(self, name: str) -> bool:
+        if self.cert_path is None:
+            return True
+        return bool(
+            name == self.cert_path
+            or re.fullmatch(rf"{re.escape(self.cert_path)}-(?:[2-9]|[1-9][0-9]+)", name)
+        )
+
+    def find_certificate_dir(self, domains: List[str]) -> Optional[Path]:
+        """Find an existing two-level certificate that covers the requested names."""
+        expected_sans = {
+            normalize_certificate_domain(domain) for domain in domains
+        }
+        candidates: list[tuple[bool, Path]] = []
+        zone_dirs = [
+            path for path in sorted(self.cert_dir.iterdir()) if path.is_dir()
+        ]
+
+        for zone_dir in zone_dirs:
+            try:
+                resolved_zone_dir = zone_dir.resolve()
+                resolved_zone_dir.relative_to(self.cert_dir)
+            except (OSError, ValueError):
+                continue
+            for directory in sorted(
+                resolved_zone_dir.iterdir(), key=lambda item: item.name
+            ):
+                if not directory.is_dir():
+                    continue
+                if not self._matches_cert_path_name(directory.name):
+                    continue
+                try:
+                    resolved_directory = directory.resolve()
+                    resolved_directory.relative_to(self.cert_dir)
+                except (OSError, ValueError):
+                    continue
+                actual_sans = self._certificate_sans(resolved_directory)
+                if actual_sans is None or not expected_sans.issubset(actual_sans):
+                    continue
+                candidates.append((actual_sans != expected_sans, resolved_directory))
+
+        if not candidates:
+            return None
+        return min(candidates, key=lambda candidate: (candidate[0], str(candidate[1])))[1]
+
+    def suggest_cert_path(self, domains: List[str]) -> str:
+        """Suggest a URI-style name for a nested wildcard without selecting it."""
+        zone = self.extract_domain_from_fqdn(domains[0])
+        for domain in domains:
+            normalized = normalize_certificate_domain(domain)
+            if not normalized.startswith("*."):
+                continue
+            wildcard_base = normalized[2:]
+            if wildcard_base == zone:
+                return "default"
+            suffix = f".{zone}"
+            if wildcard_base.endswith(suffix):
+                relative = wildcard_base[: -len(suffix)]
+                if relative:
+                    return normalize_cert_path(relative)
+        return "default"
+
+    def resolve_certificate_dir(self, domains: List[str]) -> Path:
+        """Return the stable two-level output directory for one SAN group."""
+        normalized_domains = [normalize_certificate_domain(domain) for domain in domains]
+        key = tuple(sorted(normalized_domains))
+        cached = self._certificate_dir_cache.get(key)
+        if cached is not None:
+            return cached
+
+        zone = self.extract_domain_from_fqdn(normalized_domains[0])
+        zone_dir = self._path_in_cert_dir(zone)
+        expected_sans = set(normalized_domains)
+
+        if zone_dir.is_dir():
+            matches = []
+            for child in sorted(zone_dir.iterdir(), key=lambda item: item.name):
+                if not child.is_dir():
+                    continue
+                if not self._matches_cert_path_name(child.name):
+                    continue
+                try:
+                    resolved_child = child.resolve()
+                    resolved_child.relative_to(self.cert_dir)
+                except (OSError, ValueError):
+                    continue
+                if self._certificate_sans(resolved_child) == expected_sans:
+                    matches.append(resolved_child)
+            if matches:
+                selected = matches[0]
+                self._certificate_dir_cache[key] = selected
+                self._reserved_certificate_dirs[selected] = key
+                return selected
+
+        base_name = self.cert_path or "default"
+        suffix_number = 1
+        while True:
+            name = base_name if suffix_number == 1 else f"{base_name}-{suffix_number}"
+            try:
+                candidate = self._path_in_cert_dir(zone, name)
+            except ValueError:
+                suffix_number += 1
+                continue
+            reserved_for = self._reserved_certificate_dirs.get(candidate)
+            if candidate.exists():
+                existing_sans = self._certificate_sans(candidate)
+                if existing_sans == expected_sans:
+                    selected = candidate
+                    break
+                suffix_number += 1
+                continue
+            if reserved_for == key:
+                selected = candidate
+                break
+            if reserved_for is not None:
+                suffix_number += 1
+                continue
+            self._reserved_certificate_dirs[candidate] = key
+            selected = candidate
+            break
+
+        self._certificate_dir_cache[key] = selected
+        self._reserved_certificate_dirs[selected] = key
+        return selected
+
     def _domain_dir(self, domain: str) -> Path:
-        return self._path_in_cert_dir(self._safe_file_domain_name(domain))
+        normalized = normalize_certificate_domain(domain)
+        for domain_list in self._group_domains_by_main_domain().values():
+            if normalized in domain_list:
+                return self.find_certificate_dir(domain_list) or self.resolve_certificate_dir(
+                    domain_list
+                )
+        return self.resolve_certificate_dir([normalized])
+
+    @asynccontextmanager
+    async def _issuance_lock(self, domains: List[str]):
+        """Serialize one registered-domain/path namespace outside the cert tree."""
+        normalized_domains = [
+            normalize_certificate_domain(domain) for domain in domains
+        ]
+        zone = self.extract_domain_from_fqdn(normalized_domains[0])
+        namespace = f"{zone}\n{self.cert_path or 'default'}"
+        digest = hashlib.sha256(namespace.encode("utf-8")).hexdigest()
+        lock_dir = self.acme_state_dir / "locks"
+        lock_dir.mkdir(parents=True, exist_ok=True)
+        lock_dir.chmod(0o700)
+        lock_path = lock_dir / f"{digest}.lock"
+        with open(lock_path, "a+", encoding="utf-8") as lock_file:
+            lock_path.chmod(0o600)
+            if fcntl is not None:
+                while True:
+                    try:
+                        fcntl.flock(
+                            lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB
+                        )
+                        break
+                    except BlockingIOError:
+                        await asyncio.sleep(0.1)
+            try:
+                yield
+            finally:
+                if fcntl is not None:
+                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
     def check_cert_expiry(self, domain: str) -> Optional[datetime]:
         """
@@ -294,22 +530,31 @@ class SSLCertUpdater:
         for main_domain, domain_list in domain_groups.items():
             self.logger.info(f"处理域名组: {main_domain} -> {domain_list}")
 
-            # 检查是否需要续期
-            needs_update = self.force or self.needs_group_renewal(domain_list)
-            if self.force:
-                self.logger.info(f"域名组 {main_domain} 已启用强制申请/续期")
+            async with self._issuance_lock(domain_list):
+                cache_key = tuple(
+                    sorted(
+                        normalize_certificate_domain(domain)
+                        for domain in domain_list
+                    )
+                )
+                self._certificate_dir_cache.pop(cache_key, None)
 
-            if not needs_update:
-                self.logger.info(f"域名组 {main_domain} 的证书都不需要更新")
-                success_count += 1
-                continue
+                # Re-check after acquiring the process lock because another
+                # process may have installed this SAN set while we waited.
+                needs_update = self.force or self.needs_group_renewal(domain_list)
+                if self.force:
+                    self.logger.info(f"域名组 {main_domain} 已启用强制申请/续期")
 
-            # 申请证书（使用简化的方式，实际应该集成完整的ACME客户端）
-            if await self._request_certificate_for_domains(domain_list):
-                success_count += 1
-                self.logger.info(f"域名组 {main_domain} 证书更新成功")
-            else:
-                self.logger.error(f"域名组 {main_domain} 证书申请失败")
+                if not needs_update:
+                    self.logger.info(f"域名组 {main_domain} 的证书都不需要更新")
+                    success_count += 1
+                    continue
+
+                if await self._request_certificate_for_domains(domain_list):
+                    success_count += 1
+                    self.logger.info(f"域名组 {main_domain} 证书更新成功")
+                else:
+                    self.logger.error(f"域名组 {main_domain} 证书申请失败")
 
 
         total_groups = len(domain_groups)
@@ -333,10 +578,13 @@ class SSLCertUpdater:
         return groups
 
     def _ensure_account_key(self) -> str:
-        """Ensure account key exists and return it. Uses RSA 2048 for account key (ACME requirement/standard)."""
+        """Ensure the ACME account key exists outside the certificate tree."""
         from cryptography.hazmat.primitives import serialization
         from cryptography.hazmat.primitives.asymmetric import rsa
-        key_path = self.cert_dir / "account.key"
+
+        key_path = self.acme_state_dir / "account.key"
+        if key_path.is_symlink():
+            raise ValueError("ACME account key must not be a symbolic link")
         if not key_path.exists():
             self.logger.info("Generating new account key (RSA 2048)...")
             private_key = rsa.generate_private_key(
@@ -346,33 +594,53 @@ class SSLCertUpdater:
             pem = private_key.private_bytes(
                 encoding=serialization.Encoding.PEM,
                 format=serialization.PrivateFormat.TraditionalOpenSSL,
-                encryption_algorithm=serialization.NoEncryption()
+                encryption_algorithm=serialization.NoEncryption(),
             )
-            key_path.write_bytes(pem)
-            # Secure permissions
-            key_path.chmod(0o600)
+            temporary_path = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    mode="wb",
+                    prefix="account-",
+                    suffix=".key",
+                    dir=self.acme_state_dir,
+                    delete=False,
+                ) as temporary_file:
+                    temporary_file.write(pem)
+                    temporary_file.flush()
+                    os.fsync(temporary_file.fileno())
+                    temporary_path = Path(temporary_file.name)
+                temporary_path.chmod(0o600)
+                try:
+                    os.link(temporary_path, key_path)
+                except FileExistsError:
+                    pass
+            finally:
+                if temporary_path is not None:
+                    temporary_path.unlink(missing_ok=True)
 
-        return key_path.read_text()
+        return key_path.read_text(encoding="utf-8")
 
-    def _ensure_domain_key(self, domain: str) -> str:
-        """Ensure domain key exists and return it. Uses ECDSA secp384r1 for domain key (Modern, shorter)."""
+    def _ensure_domain_key(self, certificate_dir: Path) -> str:
+        """Reuse the deployed key or create an in-memory ECDSA key."""
         from cryptography.hazmat.primitives import serialization
         from cryptography.hazmat.primitives.asymmetric import ec
-        key_path = self._path_in_cert_dir(f"{self._safe_file_domain_name(domain)}.key")
-        if not key_path.exists():
-            self.logger.info(f"Generating new private key for {domain} (ECDSA secp384r1)...")
-            # Use ECDSA secp384r1 (P-384)
-            private_key = ec.generate_private_key(ec.SECP384R1())
 
-            pem = private_key.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.TraditionalOpenSSL,
-                encryption_algorithm=serialization.NoEncryption()
-            )
-            key_path.write_bytes(pem)
-            key_path.chmod(0o600)
+        key_path = certificate_dir / "privkey.pem"
+        if key_path.is_symlink():
+            raise ValueError("certificate private key must not be a symbolic link")
+        if key_path.is_file():
+            return key_path.read_text(encoding="utf-8")
 
-        return key_path.read_text()
+        self.logger.info(
+            f"Generating new private key for {certificate_dir.name} (ECDSA secp384r1)..."
+        )
+        private_key = ec.generate_private_key(ec.SECP384R1())
+        pem = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+        return pem.decode("utf-8")
 
     def verify_certificate_key_match(self, cert_path: Path, key_path: Path) -> bool:
         """
@@ -468,11 +736,11 @@ class SSLCertUpdater:
         self.logger.info(f"Starting ACME process for: {domains}")
 
         main_domain = normalize_certificate_domain(domains[0])
-        domain_dir = self._domain_dir(main_domain)
+        domain_dir = self.resolve_certificate_dir(domains)
 
         try:
             account_key = self._ensure_account_key()
-            domain_key = self._ensure_domain_key(main_domain)
+            domain_key = self._ensure_domain_key(domain_dir)
             csr = self._generate_csr(main_domain, domains, domain_key)
 
             # Callbacks for DNS challenge (executed in thread executor context)
@@ -511,43 +779,48 @@ class SSLCertUpdater:
                 )
             )
 
-            # Save certificate and key in domain directory
-            domain_dir.mkdir(parents=True, exist_ok=True)
-            domain_dir.chmod(0o700)
+            leaf_cert, chain_cert = split_pem_chain(crt_pem)
+            with tempfile.TemporaryDirectory(
+                prefix="issuance-", dir=self.acme_state_dir
+            ) as temporary_directory:
+                staging_dir = Path(temporary_directory)
+                staged_files = {
+                    "cert.pem": leaf_cert,
+                    "chain.pem": chain_cert,
+                    "fullchain.pem": crt_pem,
+                    "privkey.pem": domain_key,
+                }
+                for filename, content in staged_files.items():
+                    path = staging_dir / filename
+                    path.write_text(content, encoding="utf-8")
+                    path.chmod(0o600 if filename == "privkey.pem" else 0o644)
 
-            # Save Private Key
-            key_path = domain_dir / "privkey.pem"
-            key_path.write_text(domain_key)
-            key_path.chmod(0o600)
-            self.logger.info(f"Private Key saved to {key_path}")
+                if not self.verify_certificate_key_match(
+                    staging_dir / "cert.pem", staging_dir / "privkey.pem"
+                ):
+                    self.logger.error(
+                        "Certificate verification FAILED: Does not match private key!"
+                    )
+                    return False
 
-            # Save Full Chain
-            fullchain_path = domain_dir / "fullchain.pem"
-            fullchain_path.write_text(crt_pem)
-            fullchain_path.chmod(0o644)
-            self.logger.info(f"Full Chain saved to {fullchain_path}")
+                expected_sans = {
+                    normalize_certificate_domain(domain) for domain in domains
+                }
+                actual_sans = self._certificate_sans(staging_dir)
+                if actual_sans != expected_sans:
+                    self.logger.error(
+                        "Certificate verification FAILED: returned SAN set does not "
+                        "match requested domains"
+                    )
+                    return False
 
-            # Split into cert and chain
-            try:
-                leaf_cert, chain_cert = split_pem_chain(crt_pem)
-                cert_path = domain_dir / "cert.pem"
-                cert_path.write_text(leaf_cert)
-                cert_path.chmod(0o644)
-                self.logger.info(f"Cert saved to {cert_path}")
-                if chain_cert:
-                    chain_path = domain_dir / "chain.pem"
-                    chain_path.write_text(chain_cert)
-                    chain_path.chmod(0o644)
-                    self.logger.info(f"Chain saved to {chain_path}")
-            except Exception as e:
-                self.logger.warning(f"Failed to split certificate chain: {e}")
+                domain_dir.mkdir(parents=True, exist_ok=True)
+                domain_dir.chmod(0o700)
+                for filename in ("chain.pem", "fullchain.pem", "cert.pem", "privkey.pem"):
+                    os.replace(staging_dir / filename, domain_dir / filename)
+                    self.logger.info(f"Saved {filename} to {domain_dir / filename}")
 
-            # Verify Certificate Match
-            if self.verify_certificate_key_match(domain_dir / "cert.pem", key_path):
-                self.logger.info("Certificate verification successful: Matches private key")
-            else:
-                self.logger.error("Certificate verification FAILED: Does not match private key!")
-                return False
+            self.logger.info("Certificate verification successful: Matches private key")
 
             return True
 

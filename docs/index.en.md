@@ -13,4 +13,4 @@ ChatDNS is the standalone DNS helper extracted from ChatTool. It now provides:
 
 `chatdns cert` carries the old `chattool dns cert` boundary into ChatDNS. It uses ACME DNS-01 validation and writes `_acme-challenge` TXT records through the configured DNS provider. Certificate issuance and DNS writes are external side effects; test with `--staging` before production issuance.
 
-See [Certificate Storage And Creation Rules](certificate-storage.en.md) for root resolution, first-use layout, file modes, wildcard/SAN grouping, the central store, and the remote infrastructure boundary.
+See [Certificate Storage And Creation Rules](certificate-storage.md) for root resolution, first-use layout, file modes, wildcard/SAN grouping, the central store, and the remote infrastructure boundary.
