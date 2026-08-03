@@ -5,7 +5,7 @@
     <a href="https://github.com/ChatArch/ChatDNS/actions/workflows/ci.yml">
         <img src="https://github.com/ChatArch/ChatDNS/actions/workflows/ci.yml/badge.svg" alt="Tests" />
     </a>
-    <a href="https://arch.gh.wzhecnu.cn/chatdns/">
+    <a href="https://arch.gh.wzhecnu.cn/ChatDNS/">
         <img src="https://img.shields.io/badge/docs-latest-blue.svg" alt="Docs" />
     </a>
 </p>
@@ -54,7 +54,7 @@ ChatDNS 会自动加载 `$CHATARCH_HOME/envs`（默认 `~/.chatarch/envs`）下�
 
 证书目录优先级为：显式 `--cert-dir` / Python `cert_dir`，其次是 ChatEnv `CHATDNS_CERT_DIR`，最后回退到 `$CHATARCH_HOME/certs`。泛解析与 SAN 证书因此默认集中保存在 ChatArch 内部，同时仍可按命令显式覆盖。
 
-完整的自动创建目录、文件权限、多 SAN 续期、中央 managed-zone 分层与远端 Infra 边界见[证书目录与创建规则](https://arch.gh.wzhecnu.cn/chatdns/certificate-storage/)。
+完整的自动创建目录、文件权限、多 SAN 续期、中央 managed-zone 分层与远端 Infra 边界见[证书目录与创建规则](https://arch.gh.wzhecnu.cn/ChatDNS/certificate-storage/)。
 
 包通过 `chatenv.configs` entry point 注册 `chatdns.config`。
 

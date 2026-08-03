@@ -31,7 +31,7 @@ classifiers = [
 [project.urls]
 Homepage = "https://github.com/ChatArch/ChatDNS"
 Repository = "https://github.com/ChatArch/ChatDNS"
-Documentation = "https://arch.gh.wzhecnu.cn/chatdns/"
+Documentation = "https://arch.gh.wzhecnu.cn/ChatDNS/"
 
 [project.scripts]
 chatdns = "chatdns.cli:main"
