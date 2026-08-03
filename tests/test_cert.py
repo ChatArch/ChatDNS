@@ -77,6 +77,14 @@ def test_cert_apply_invokes_ssl_updater_without_live_acme():
     runner = CliRunner()
     with patch("chatdns.cert.SSLCertUpdater") as updater_cls:
         updater = updater_cls.return_value
+        domain_group = ["example.com", "*.example.com"]
+        output_dir = Path("certs-test/example.com/precision")
+        updater._group_domains_by_main_domain.return_value = {
+            "example.com": domain_group
+        }
+        updater.resolve_certificate_dir.return_value = output_dir
+        updater.find_certificate_dir.return_value = output_dir
+        updater.suggest_cert_path.return_value = "default"
         updater.run_once = AsyncMock(return_value=True)
 
         result = runner.invoke(
@@ -117,6 +125,53 @@ def test_cert_apply_invokes_ssl_updater_without_live_acme():
     updater.run_once.assert_awaited_once()
 
 
+def test_cert_apply_previews_each_managed_zone_group():
+    runner = CliRunner()
+    example_com = ["*.example.com"]
+    example_net = ["*.example.net"]
+    com_path = Path("certs/example.com/default")
+    net_path = Path("certs/example.net/default")
+    with patch("chatdns.cert.SSLCertUpdater") as updater_cls:
+        updater = updater_cls.return_value
+        updater._group_domains_by_main_domain.return_value = {
+            "example.com": example_com,
+            "example.net": example_net,
+        }
+        updater.resolve_certificate_dir.side_effect = [com_path, net_path]
+        updater.find_certificate_dir.side_effect = [com_path, net_path]
+        updater.suggest_cert_path.return_value = "default"
+        updater.run_once = AsyncMock(return_value=True)
+
+        result = runner.invoke(
+            main,
+            [
+                "cert",
+                "apply",
+                "-d",
+                "*.example.com",
+                "-d",
+                "*.example.net",
+                "-e",
+                "admin@example.com",
+                "--provider",
+                "tencent",
+                "-I",
+            ],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0, result.output
+    assert f"证书路径（预览）: {com_path}" in result.output
+    assert f"证书路径（预览）: {net_path}" in result.output
+    assert f"证书路径（实际）: {com_path}" in result.output
+    assert f"证书路径（实际）: {net_path}" in result.output
+    assert [item.args for item in updater.resolve_certificate_dir.call_args_list] == [
+        (example_com,),
+        (example_net,),
+    ]
+    updater.run_once.assert_awaited_once()
+
+
 def test_cert_help_documents_chatarch_managed_default():
     for command in (["cert", "apply", "--help"], ["cert", "check", "--help"]):
         result = CliRunner().invoke(main, command)
@@ -135,7 +190,16 @@ def test_cert_apply_uses_chatenv_cert_dir(tmp_path):
     )
     runner = CliRunner()
     with patch("chatdns.cert.SSLCertUpdater") as updater_cls:
-        updater_cls.return_value.run_once = AsyncMock(return_value=True)
+        updater = updater_cls.return_value
+        domain_group = ["*.example.com"]
+        output_dir = configured / "example.com" / "default"
+        updater._group_domains_by_main_domain.return_value = {
+            "example.com": domain_group
+        }
+        updater.resolve_certificate_dir.return_value = output_dir
+        updater.find_certificate_dir.return_value = output_dir
+        updater.suggest_cert_path.return_value = "default"
+        updater.run_once = AsyncMock(return_value=True)
         result = runner.invoke(
             main,
             [
@@ -366,6 +430,43 @@ async def test_issuance_lock_serializes_different_sans_in_same_default_namespace
     assert len(list((state_root / "locks").glob("*.lock"))) == 1
 
 
+@pytest.mark.asyncio
+async def test_issuance_lock_serializes_overlapping_numeric_cert_paths(tmp_path):
+    cert_root = tmp_path / "certs"
+    state_root = tmp_path / "private" / "acme"
+    client = FakeDNSClient(zones=["example.com"])
+    base_updater = SSLCertUpdater(
+        dns_client=client,
+        domains=["*.example.com"],
+        email="ops@example.com",
+        cert_dir=cert_root,
+        cert_path="foo",
+        acme_state_dir=state_root,
+    )
+    suffix_updater = SSLCertUpdater(
+        dns_client=client,
+        domains=["*.precision.example.com"],
+        email="ops@example.com",
+        cert_dir=cert_root,
+        cert_path="foo-2",
+        acme_state_dir=state_root,
+    )
+    entered = []
+
+    async def wait_for_overlapping_namespace():
+        async with suffix_updater._issuance_lock(["*.precision.example.com"]):
+            entered.append(True)
+
+    async with base_updater._issuance_lock(["*.example.com"]):
+        waiter = asyncio.create_task(wait_for_overlapping_namespace())
+        await asyncio.sleep(0.15)
+        assert entered == []
+
+    await asyncio.wait_for(waiter, timeout=1)
+    assert entered == [True]
+    assert len(list((state_root / "locks").glob("*.lock"))) == 1
+
+
 def test_multi_san_group_checks_primary_certificate_once(tmp_path):
     updater = SSLCertUpdater(
         domains=["example.com", "*.example.com"],
@@ -480,6 +581,18 @@ def test_default_certificate_layout_uses_zone_and_default_scope(tmp_path):
     assert updater.resolve_certificate_dir(updater.domains) == (
         tmp_path / "example.com" / "default"
     ).resolve()
+
+
+def test_certificate_layout_rejects_cross_zone_san_group(tmp_path):
+    updater = SSLCertUpdater(
+        domains=["*.example.com", "*.example.net"],
+        email="admin@example.com",
+        cert_dir=tmp_path,
+        dns_client=FakeDNSClient(zones=["example.com", "example.net"]),
+    )
+
+    with pytest.raises(ValueError, match="one managed zone"):
+        updater.resolve_certificate_dir(updater.domains)
 
 
 def test_explicit_cert_path_uses_one_safe_relative_segment(tmp_path):
@@ -613,6 +726,47 @@ def test_certificate_path_symlink_escape_uses_numeric_suffix(tmp_path):
 
     assert updater.resolve_certificate_dir(updater.domains) == (
         tmp_path / "certs" / "example.com" / "default-2"
+    ).resolve()
+
+
+def test_certificate_layout_rejects_managed_zone_symlink_inside_root(tmp_path):
+    cert_root = tmp_path / "certs"
+    other_zone = cert_root / "other.com"
+    other_zone.mkdir(parents=True)
+    try:
+        (cert_root / "example.com").symlink_to(other_zone, target_is_directory=True)
+    except OSError:
+        pytest.skip("directory symlinks are not available")
+    updater = SSLCertUpdater(
+        dns_client=FakeDNSClient(zones=["example.com"]),
+        domains=["*.example.com"],
+        email="ops@example.com",
+        cert_dir=cert_root,
+    )
+
+    with pytest.raises(ValueError, match="symlink"):
+        updater.resolve_certificate_dir(updater.domains)
+
+
+def test_certificate_layout_does_not_follow_leaf_symlink_inside_root(tmp_path):
+    cert_root = tmp_path / "certs"
+    zone_dir = cert_root / "example.com"
+    target = cert_root / "other.com" / "precision"
+    _write_test_certificate(target / "fullchain.pem", ["*.example.com"])
+    zone_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        (zone_dir / "default").symlink_to(target, target_is_directory=True)
+    except OSError:
+        pytest.skip("directory symlinks are not available")
+    updater = SSLCertUpdater(
+        dns_client=FakeDNSClient(zones=["example.com"]),
+        domains=["*.example.com"],
+        email="ops@example.com",
+        cert_dir=cert_root,
+    )
+
+    assert updater.resolve_certificate_dir(updater.domains) == (
+        zone_dir / "default-2"
     ).resolve()
 
 

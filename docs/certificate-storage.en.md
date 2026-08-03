@@ -88,6 +88,7 @@ The result is `$CHATARCH_HOME/certs/example.com/precision/`. `--cert-path` must 
 - An omitted `--cert-path` starts at `default`.
 - If that directory belongs to a different SAN set, ChatDNS tries `default-2`, then `default-3`.
 - Explicit-name collisions use the same `<name>-2`, `<name>-3` sequence.
+- Explicit names that can overlap generated suffixes share one lock namespace; for example, `foo` and `foo-2` cannot allocate the same directory concurrently.
 - A directory with the exact normalized SAN set is reused for renewal and does not gain a new suffix.
 - `chatdns cert check` accepts `--cert-path`; without it, ChatDNS scans the two-level tree for a certificate that covers the requested names.
 
@@ -116,7 +117,7 @@ For a new certificate, ChatDNS generates the key in memory. After ACME returns a
 
 ## SAN Grouping And Renewal
 
-Input names from one provider-managed zone form one SAN certificate. Renewal:
+Input names from one provider-managed zone form one SAN certificate. One directory-resolution call accepts exactly one managed zone; the CLI groups multi-zone input before previewing and issuing each certificate. Renewal:
 
 1. locates the existing two-level directory for the complete SAN set;
 2. checks whether the certificate is missing or expires within 30 days;
@@ -150,6 +151,7 @@ Nginx references `fullchain.pem` and `privkey.pem`. Models write specific synchr
 Use `--staging` before a production request. After production issuance, verify at least:
 
 - the target is exactly two directory levels below the root;
+- neither the managed-zone directory nor the certificate leaf resolves through a symlink;
 - the leaf directory contains only four PEM files;
 - complete SAN coverage;
 - matching public keys in `cert.pem` and `privkey.pem`;
