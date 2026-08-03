@@ -707,9 +707,39 @@ def test_certificate_request_writes_only_four_verified_pem_files(tmp_path):
     assert updater.verify_certificate_key_match(
         certificate_dir / "cert.pem", certificate_dir / "privkey.pem"
     )
+    assert not list(updater.acme_state_dir.glob("issuance-*"))
     assert sorted(path.name for path in updater.acme_state_dir.iterdir()) == [
         "account.key"
     ]
+
+
+def test_certificate_request_rejects_mismatched_returned_sans(tmp_path):
+    updater = SSLCertUpdater(
+        domains=["*.example.com"],
+        email="admin@example.com",
+        cert_dir=tmp_path / "certs",
+        acme_state_dir=tmp_path / "private" / "acme",
+        dns_client=FakeDNSClient(zones=["example.com"]),
+    )
+    fake_certificate = (
+        "-----BEGIN CERTIFICATE-----\n"
+        "ZmFrZQ==\n"
+        "-----END CERTIFICATE-----\n"
+    )
+    updater._ensure_account_key = Mock(return_value="account-key")
+    updater._ensure_domain_key = Mock(return_value="domain-key")
+    updater._generate_csr = Mock(return_value="csr")
+    updater.verify_certificate_key_match = Mock(return_value=True)
+    updater._certificate_sans = Mock(return_value={"wrong.example.com"})
+
+    with patch("chatdns.cert.get_crt", return_value=fake_certificate):
+        result = asyncio.run(
+            updater._request_certificate_for_domains(["*.example.com"])
+        )
+
+    assert result is False
+    assert not (tmp_path / "certs" / "example.com" / "default").exists()
+    assert not list(updater.acme_state_dir.glob("issuance-*"))
 
 
 def test_split_pem_chain_preserves_certificate_boundaries():

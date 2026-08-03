@@ -803,6 +803,17 @@ class SSLCertUpdater:
                     )
                     return False
 
+                expected_sans = {
+                    normalize_certificate_domain(domain) for domain in domains
+                }
+                actual_sans = self._certificate_sans(staging_dir)
+                if actual_sans != expected_sans:
+                    self.logger.error(
+                        "Certificate verification FAILED: returned SAN set does not "
+                        "match requested domains"
+                    )
+                    return False
+
                 domain_dir.mkdir(parents=True, exist_ok=True)
                 domain_dir.chmod(0o700)
                 for filename in ("chain.pem", "fullchain.pem", "cert.pem", "privkey.pem"):
