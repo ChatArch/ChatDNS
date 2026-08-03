@@ -41,118 +41,116 @@ An explicit path always wins:
 chatdns cert check example.com --cert-dir /tmp/cert-audit
 ```
 
-## Automatically Created Layout
+## Two-Level Certificate Layout
 
-Given an effective root of `$CHATARCH_HOME/certs`, this request:
+ChatDNS always stores a certificate at:
+
+```text
+$CHATARCH_HOME/certs/<registered-domain>/<cert-path>/
+```
+
+The registered domain is the longest provider-managed zone that matches the requested name. A root wildcard request is:
 
 ```bash
 chatdns cert apply \
-  -d example.com \
   -d '*.example.com' \
   -e admin@example.com \
   --provider aliyun
 ```
 
-produces:
+Without `--cert-path`, the default result is:
 
 ```text
 $CHATARCH_HOME/certs/
-├── account.key
-├── example.com.key
+├── README.md                 # optional; the only root-level note
 └── example.com/
-    ├── cert.pem
-    ├── chain.pem
-    ├── fullchain.pem
-    └── privkey.pem
+    └── default/
+        ├── cert.pem
+        ├── chain.pem
+        ├── fullchain.pem
+        └── privkey.pem
 ```
 
-Rules:
-
-- `account.key` is the ACME account key for this issuance root and is generated on first use.
-- `<certificate-primary>.key` is the persistent certificate private key. The primary is the first requested name in a managed DNS-zone group.
-- `<certificate-primary>/` is created after certificate issuance succeeds.
-- A wildcard `*` is converted to `_` when a domain is used as a file name.
-- If ACME fails before issuance, account/domain keys may exist while the certificate output directory does not.
-
-## File Roles And Permissions
-
-| File or directory | Purpose | Mode |
-|---|---|---:|
-| Certificate root | ACME keys and certificate groups | `0700` |
-| Certificate group directory | Deployment files for one SAN certificate | `0700` |
-| `account.key` | ACME account private key | `0600` |
-| `<certificate-primary>.key` | Persistent certificate private key | `0600` |
-| `privkey.pem` | Private key deployed to Nginx | `0600` |
-| `cert.pem` | Leaf certificate | `0644` |
-| `chain.pem` | Intermediate chain | `0644` |
-| `fullchain.pem` | Leaf plus intermediate chain for Nginx | `0644` |
-
-Never commit a certificate root to Git or expose private-key content in logs, reports, or chat.
-
-## Wildcard And Multi-SAN Groups
-
-ChatDNS discovers the provider-managed DNS zone and handles input names from the same zone as one SAN certificate. The first name selects the persistent key and output directory, so place the non-wildcard primary first:
-
-```bash
--d example.com -d '*.example.com'
-```
-
-Renewal is evaluated for the stored group certificate:
-
-1. verify that the primary certificate exists and is not near expiry;
-2. verify that its SAN extension covers every requested name;
-3. renew only when the certificate is missing, near expiry, or has incomplete SAN coverage.
-
-This avoids treating `*.example.com` as an unrelated local certificate and requesting the same group repeatedly.
-
-## ChatArch Central Store
-
-Multi-zone central management uses a deterministic two-level path:
-
-```text
-$CHATARCH_HOME/certs/<managed-zone>/<certificate-primary>/
-```
-
-The central runner passes the zone root explicitly:
+Use the URI name explicitly for a deeper wildcard:
 
 ```bash
 chatdns cert apply \
-  --cert-dir "$CHATARCH_HOME/certs/example.com" \
-  -d example.com \
-  -d '*.example.com' \
-  -e admin@example.com
+  -d '*.precision.example.com' \
+  -e admin@example.com \
+  --provider aliyun \
+  --cert-path precision
 ```
 
-ChatDNS creates the primary directory below it, resulting in:
+The result is `$CHATARCH_HOME/certs/example.com/precision/`. `--cert-path` must be one safe directory segment. Absolute paths, `/`, `\`, `.`, `..`, and traversal are rejected. ChatDNS can print a URI-style wildcard suggestion, but it never silently replaces an explicit name or the default behavior.
+
+## Defaults, Collisions, And Renewal Reuse
+
+- An omitted `--cert-path` starts at `default`.
+- If that directory belongs to a different SAN set, ChatDNS tries `default-2`, then `default-3`.
+- Explicit-name collisions use the same `<name>-2`, `<name>-3` sequence.
+- A directory with the exact normalized SAN set is reused for renewal and does not gain a new suffix.
+- `chatdns cert check` accepts `--cert-path`; without it, ChatDNS scans the two-level tree for a certificate that covers the requested names.
+
+A wildcard covers exactly one level: `*.example.com` covers `nas.example.com`, but not `foo.precision.example.com`. The latter requires `*.precision.example.com`.
+
+## File Roles, Modes, And Private ACME State
+
+Every leaf certificate directory contains exactly four PEM files:
+
+| File or directory | Purpose | Mode |
+|---|---|---:|
+| Certificate root | Registered-domain directories and optional `README.md` | `0700` |
+| Certificate leaf directory | Four deployment files for one certificate | `0700` |
+| `privkey.pem` | Certificate private key | `0600` |
+| `cert.pem` | Leaf certificate | `0644` |
+| `chain.pem` | Intermediate chain | `0644` |
+| `fullchain.pem` | Leaf plus intermediate chain | `0644` |
+
+ACME account keys, issuance staging directories, and temporary keys never enter `certs/`. The default private state directory is:
 
 ```text
-$CHATARCH_HOME/certs/example.com/example.com/
+$CHATARCH_HOME/private/chatdns/acme/
 ```
 
-The manifest invariant is:
+For a new certificate, ChatDNS generates the key in memory. After ACME returns a chain, it splits and verifies the staged certificate/key pair in private state before writing the four PEM files. Never commit either certificate storage or private ACME state, and never expose private-key content.
 
-```text
-managed_zone = example.com
-primary_domain = example.com
-local_dir = example.com/example.com
+## SAN Grouping And Renewal
+
+Input names from one provider-managed zone form one SAN certificate. Renewal:
+
+1. locates the existing two-level directory for the complete SAN set;
+2. checks whether the certificate is missing or expires within 30 days;
+3. checks that every requested SAN is covered;
+4. requests a certificate only when required or when `--force` is explicit.
+
+## Infra Manifest Table
+
+`manifest.json` and model-authored `scripts/` belong to the separate Infra workspace, not to the certificate root. ChatDNS renders a manifest read-only and never creates or rewrites it:
+
+```bash
+cd Infra
+chatdns cert manifest
+chatdns cert manifest ./manifest.json
 ```
 
-The zone partition makes provider/profile selection, ACME accounts, logs, renewal, and deployment auditable by authoritative DNS zone.
+An empty file, empty object, or empty `certificates` container renders as an empty table. The command accepts top-level `certificate_groups`, `certificates`, or `groups` collections and shows ID, registered domain, certificate path, SANs, deployment counts, and status.
 
 ## Remote Infrastructure Path
 
-ChatArch infrastructure preserves the same relative path:
+Remote infrastructure preserves the same relative path:
 
 ```text
-<remote-home>/.chatarch/certs/<managed-zone>/<certificate-primary>/
+<remote-home>/.chatarch/certs/<registered-domain>/<cert-path>/
 ```
 
-Nginx references `fullchain.pem` and `privkey.pem` there. Remote migration belongs to the infrastructure synchronization layer and must back up old certificates and Nginx configs, install atomically, run `nginx -t`, reload, roll back on failure, and read the live certificate back with SNI. The ChatDNS CLI only issues certificates and writes local files; it does not modify remote Nginx automatically.
+Nginx references `fullchain.pem` and `privkey.pem`. Models write specific synchronization or update scripts from live server evidence; ChatDNS does not hard-code those deployment workflows. A remote change must back up certificates and configuration, install atomically, test configuration, reload, roll back on failure, and read the live certificate back with SNI.
 
 ## Safety Checks
 
 Use `--staging` before a production request. After production issuance, verify at least:
 
+- the target is exactly two directory levels below the root;
+- the leaf directory contains only four PEM files;
 - complete SAN coverage;
 - matching public keys in `cert.pem` and `privkey.pem`;
 - removal of temporary `_acme-challenge` TXT records;

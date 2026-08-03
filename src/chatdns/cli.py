@@ -7,6 +7,8 @@
 import os
 import click
 import asyncio
+import json
+from pathlib import Path
 
 from chatstyle import (
     ask_confirm,
@@ -290,6 +292,102 @@ def _print_record_table(records, provider):
             f"{record['TTL']:<6} "
             f"{record.get('Status', '-')}"
         )
+
+
+def _manifest_certificate_groups(data):
+    """Normalize supported Infra manifest containers into certificate dictionaries."""
+    if isinstance(data, list):
+        collection = data
+    elif isinstance(data, dict):
+        collection = None
+        for key in ("certificate_groups", "certificates", "groups"):
+            if key in data:
+                collection = data[key]
+                break
+        if collection is None:
+            return []
+    else:
+        raise ValueError("manifest root must be a JSON object or array")
+
+    if isinstance(collection, dict):
+        normalized = []
+        for key, value in collection.items():
+            if not isinstance(value, dict):
+                continue
+            item = dict(value)
+            item.setdefault("id", str(key))
+            normalized.append(item)
+        return normalized
+    if isinstance(collection, list):
+        return [item for item in collection if isinstance(item, dict)]
+    raise ValueError("certificate collection must be a JSON object or array")
+
+
+def _table_cell(value, width):
+    text = str(value if value not in (None, "") else "-").replace("\n", " ")
+    if len(text) > width:
+        return text[: width - 1] + "…"
+    return text
+
+
+def _print_certificate_manifest(groups, source):
+    click.echo(f"Certificate manifest: {source}")
+    if not groups:
+        click.echo("No certificate entries.")
+        return
+
+    columns = (
+        ("ID", 24),
+        ("Registered Domain", 20),
+        ("Certificate Path", 28),
+        ("Domains", 42),
+        ("Deploy", 9),
+        ("Status", 34),
+    )
+    click.echo(" ".join(f"{title:<{width}}" for title, width in columns))
+    click.echo("-" * (sum(width for _, width in columns) + len(columns) - 1))
+    for index, group in enumerate(groups, start=1):
+        deployments = group.get("deployments")
+        if isinstance(deployments, list):
+            enabled = sum(
+                1
+                for deployment in deployments
+                if isinstance(deployment, dict) and deployment.get("enabled", True)
+            )
+            deployment_summary = f"{enabled}/{len(deployments)}"
+        else:
+            deployment_summary = "-"
+        domains = group.get("domains")
+        if isinstance(domains, list):
+            domains = ", ".join(str(domain) for domain in domains)
+        row = (
+            group.get("id") or group.get("name") or index,
+            group.get("registered_domain")
+            or group.get("managed_zone")
+            or group.get("zone"),
+            group.get("cert_path") or group.get("local_dir") or group.get("path"),
+            domains or group.get("domain") or group.get("primary_domain"),
+            deployment_summary,
+            group.get("status") or group.get("readiness") or group.get("purpose"),
+        )
+        click.echo(
+            " ".join(
+                f"{_table_cell(value, width):<{width}}"
+                for value, (_, width) in zip(row, columns)
+            )
+        )
+
+
+def _validate_cert_path_option(ctx, param, value):
+    del ctx
+    if value is None:
+        return None
+    from .cert import normalize_cert_path
+
+    try:
+        return normalize_cert_path(value)
+    except ValueError as exc:
+        raise click.BadParameter(str(exc), param=param) from exc
 
 
 async def _get_public_ip(timeout: int = 10):
@@ -745,13 +843,33 @@ def cert_group():
     default=None,
     help="Certificate output directory; defaults to CHATDNS_CERT_DIR or $CHATARCH_HOME/certs.",
 )
+@click.option(
+    "--cert-path",
+    default=None,
+    metavar="NAME",
+    callback=_validate_cert_path_option,
+    help="Safe directory name below the registered domain; defaults to default[-N].",
+)
 @click.option("--staging", is_flag=True, help="Use Let's Encrypt staging directory.")
 @click.option("--force", is_flag=True, help="Force renewal/application even if local cert is still valid.")
 @click.option("--log-file", default=None, help="Optional detailed log file path.")
 @click.option("--log-level", default="INFO", show_default=True, help="Log level.")
 @add_interactive_option
 @click.pass_context
-def cert_apply(ctx, domains, email, provider, env_profile, cert_dir, staging, force, log_file, log_level, interactive):
+def cert_apply(
+    ctx,
+    domains,
+    email,
+    provider,
+    env_profile,
+    cert_dir,
+    cert_path,
+    staging,
+    force,
+    log_file,
+    log_level,
+    interactive,
+):
     """Apply or renew certificates using ACME DNS-01 validation."""
     _set_env_profile(ctx, env_profile)
     provided_domains = list(domains)
@@ -805,20 +923,34 @@ def cert_apply(ctx, domains, email, provider, env_profile, cert_dir, staging, fo
     )
     provider = _resolve_provider(ctx, provider)
     cert_dir = str(resolve_cert_dir(cert_dir, home=_chatarch_home(ctx)))
-    updater = SSLCertUpdater(
-        domains=provided_domains,
-        email=email,
-        cert_dir=cert_dir,
-        staging=staging,
-        force=force,
-        dns_type=provider,
-        logger=logger,
-        env_profile=_env_profile(ctx),
-        chatarch_home=_chatarch_home(ctx),
-    )
+    try:
+        updater = SSLCertUpdater(
+            domains=provided_domains,
+            email=email,
+            cert_dir=cert_dir,
+            cert_path=cert_path,
+            staging=staging,
+            force=force,
+            dns_type=provider,
+            logger=logger,
+            env_profile=_env_profile(ctx),
+            chatarch_home=_chatarch_home(ctx),
+        )
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+    try:
+        output_dir = updater.resolve_certificate_dir(provided_domains)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(f"证书路径（预览）: {output_dir}")
+    suggestion = updater.suggest_cert_path(provided_domains)
+    if cert_path is None and suggestion != "default":
+        click.echo(f"路径建议: --cert-path {suggestion}（本次仍使用 default[-N]）")
     success = asyncio.run(updater.run_once())
     if not success:
         raise click.ClickException("证书申请/续期失败。")
+    actual_dir = updater.find_certificate_dir(provided_domains) or output_dir
+    click.echo(f"证书路径（实际）: {actual_dir}")
     click.echo(f"证书申请/续期成功: {', '.join(provided_domains)}")
 
 
@@ -830,6 +962,13 @@ def cert_apply(ctx, domains, email, provider, env_profile, cert_dir, staging, fo
     help="Certificate directory; defaults to CHATDNS_CERT_DIR or $CHATARCH_HOME/certs.",
 )
 @click.option(
+    "--cert-path",
+    default=None,
+    metavar="NAME",
+    callback=_validate_cert_path_option,
+    help="Safe directory name below the registered domain; defaults to matching/default[-N].",
+)
+@click.option(
     "--provider",
     "-p",
     default=None,
@@ -837,7 +976,7 @@ def cert_apply(ctx, domains, email, provider, env_profile, cert_dir, staging, fo
     help=PROVIDER_HELP,
 )
 @click.pass_context
-def cert_check(ctx, domains, cert_dir, provider):
+def cert_check(ctx, domains, cert_dir, cert_path, provider):
     """Check local certificate expiry for one or more domains."""
     if not domains:
         raise click.ClickException("请提供至少一个域名，例如: chatdns cert check example.com")
@@ -847,14 +986,19 @@ def cert_check(ctx, domains, cert_dir, provider):
     load_chatdns_config(env_profile=_env_profile(ctx), home=_chatarch_home(ctx))
     cert_dir = str(resolve_cert_dir(cert_dir, home=_chatarch_home(ctx)))
     logger = setup_logger("chatdns_cert_check", log_level="INFO", format_type="simple")
-    updater = SSLCertUpdater(
-        domains=list(domains),
-        email="check@example.invalid",
-        cert_dir=cert_dir,
-        dns_type=provider,
-        dns_client=object(),
-        logger=logger,
-    )
+    try:
+        updater = SSLCertUpdater(
+            domains=list(domains),
+            email="check@example.invalid",
+            cert_dir=cert_dir,
+            cert_path=cert_path,
+            dns_type=provider,
+            dns_client=object(),
+            logger=logger,
+            chatarch_home=_chatarch_home(ctx),
+        )
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
     for domain_list in updater._group_domains_by_main_domain().values():
         primary_domain = domain_list[0]
         expiry = updater.check_cert_expiry(primary_domain)
@@ -868,6 +1012,26 @@ def cert_check(ctx, domains, cert_dir, provider):
                 f"{domain}: expires {expiry.isoformat()} "
                 f"renew={'yes' if needs else 'no'}"
             )
+
+
+@cert_group.command(name="manifest")
+@click.argument(
+    "manifest_path",
+    required=False,
+    default="manifest.json",
+    type=click.Path(path_type=Path, dir_okay=False),
+)
+def cert_manifest(manifest_path):
+    """Render an Infra certificate manifest as a table without modifying it."""
+    if not manifest_path.is_file():
+        raise click.ClickException(f"Manifest not found: {manifest_path}")
+    try:
+        content = manifest_path.read_text(encoding="utf-8")
+        data = {} if not content.strip() else json.loads(content)
+        groups = _manifest_certificate_groups(data)
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
+        raise click.ClickException(f"Unable to read manifest {manifest_path}: {exc}") from exc
+    _print_certificate_manifest(groups, manifest_path)
 
 
 def _certbot_challenge_record(domain: str, dns_client=None) -> tuple[str, str]:

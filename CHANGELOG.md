@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.5 - 2026-08-04
+
+- Store every certificate at `<registered-domain>/<cert-path>/` below the configured certificate root.
+- Add `--cert-path` to `chatdns cert apply` and `chatdns cert check`; default to `default`, suffix collisions, and reuse exact SAN sets.
+- Keep ACME account and issuance state outside `certs/` under ChatArch private storage.
+- Stage and verify certificate/key output before writing the four deployment PEM files.
+- Add the read-only `chatdns cert manifest` table for separate Infra manifests, including empty manifests and legacy `certificate_groups` data.
+- Document the strict two-level tree, one-level wildcard coverage, and model-authored remote Infra boundary.
+- Build the existing bilingual documentation through the standard `/ChatDNS/` and `/ChatDNS/en/` language paths.
+
 ## 0.1.4 - 2026-08-04
 
 - Add the ChatEnv-managed `CHATDNS_CERT_DIR` certificate-directory setting.

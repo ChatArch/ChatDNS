@@ -1,4 +1,5 @@
 import asyncio
+import json
 import stat
 from pathlib import Path
 
@@ -93,6 +94,8 @@ def test_cert_apply_invokes_ssl_updater_without_live_acme():
                 "tencent",
                 "--cert-dir",
                 "certs-test",
+                "--cert-path",
+                "precision",
                 "--staging",
                 "--force",
                 "-I",
@@ -108,6 +111,7 @@ def test_cert_apply_invokes_ssl_updater_without_live_acme():
     assert kwargs["email"] == "admin@example.com"
     assert kwargs["dns_type"] == "tencent"
     assert kwargs["cert_dir"] == "certs-test"
+    assert kwargs["cert_path"] == "precision"
     assert kwargs["staging"] is True
     assert kwargs["force"] is True
     updater.run_once.assert_awaited_once()
@@ -118,6 +122,7 @@ def test_cert_help_documents_chatarch_managed_default():
         result = CliRunner().invoke(main, command)
         assert result.exit_code == 0, result.output
         assert "CHATDNS_CERT_DIR or $CHATARCH_HOME/certs" in result.output
+        assert "--cert-path" in result.output
 
 
 def test_cert_apply_uses_chatenv_cert_dir(tmp_path):
@@ -231,7 +236,7 @@ def test_cert_check_does_not_initialize_real_dns_client(tmp_path):
 
 def test_cert_check_reports_one_multi_san_certificate_for_all_names(tmp_path):
     _write_test_certificate(
-        tmp_path / "example.com" / "fullchain.pem",
+        tmp_path / "example.com" / "default" / "fullchain.pem",
         ["example.com", "*.example.com"],
     )
 
@@ -253,6 +258,112 @@ def test_cert_check_reports_one_multi_san_certificate_for_all_names(tmp_path):
     assert "*.example.com: expires" in result.output
     assert "no local certificate" not in result.output
     assert result.output.count("renew=no") == 2
+
+
+def test_cert_check_finds_covering_certificate_for_one_requested_name(tmp_path):
+    _write_test_certificate(
+        tmp_path / "example.com" / "default" / "fullchain.pem",
+        ["example.com", "*.example.com"],
+    )
+
+    result = CliRunner().invoke(
+        main,
+        ["cert", "check", "example.com", "--cert-dir", str(tmp_path)],
+        catch_exceptions=False,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "example.com: expires" in result.output
+    assert "no local certificate" not in result.output
+
+
+def test_explicit_cert_path_lookup_scans_real_zone_for_public_suffix(tmp_path):
+    certificate_dir = tmp_path / "certs" / "example.co.uk" / "precision"
+    _write_test_certificate(
+        certificate_dir / "fullchain.pem",
+        ["*.precision.example.co.uk"],
+    )
+    updater = SSLCertUpdater(
+        dns_client=object(),
+        domains=["*.precision.example.co.uk"],
+        email="ops@example.co.uk",
+        cert_dir=tmp_path / "certs",
+        cert_path="precision",
+    )
+
+    assert updater.find_certificate_dir(
+        ["*.precision.example.co.uk"]
+    ) == certificate_dir.resolve()
+
+
+@pytest.mark.asyncio
+async def test_issuance_lock_serializes_same_san_set_outside_cert_root(tmp_path):
+    cert_root = tmp_path / "certs"
+    state_root = tmp_path / "private" / "acme"
+    updater_one = SSLCertUpdater(
+        dns_client=object(),
+        domains=["*.example.com"],
+        email="ops@example.com",
+        cert_dir=cert_root,
+        acme_state_dir=state_root,
+    )
+    updater_two = SSLCertUpdater(
+        dns_client=object(),
+        domains=["*.example.com"],
+        email="ops@example.com",
+        cert_dir=cert_root,
+        acme_state_dir=state_root,
+    )
+    entered = []
+
+    async def wait_for_lock():
+        async with updater_two._issuance_lock(["*.example.com"]):
+            entered.append(True)
+
+    async with updater_one._issuance_lock(["*.example.com"]):
+        waiter = asyncio.create_task(wait_for_lock())
+        await asyncio.sleep(0.15)
+        assert entered == []
+
+    await asyncio.wait_for(waiter, timeout=1)
+    assert entered == [True]
+    assert list(cert_root.rglob("*")) == []
+    assert len(list((state_root / "locks").glob("*.lock"))) == 1
+
+
+@pytest.mark.asyncio
+async def test_issuance_lock_serializes_different_sans_in_same_default_namespace(tmp_path):
+    cert_root = tmp_path / "certs"
+    state_root = tmp_path / "private" / "acme"
+    client = FakeDNSClient(zones=["example.com"])
+    updater_one = SSLCertUpdater(
+        dns_client=client,
+        domains=["*.example.com"],
+        email="ops@example.com",
+        cert_dir=cert_root,
+        acme_state_dir=state_root,
+    )
+    updater_two = SSLCertUpdater(
+        dns_client=client,
+        domains=["*.precision.example.com"],
+        email="ops@example.com",
+        cert_dir=cert_root,
+        acme_state_dir=state_root,
+    )
+    entered = []
+
+    async def wait_for_default_namespace():
+        async with updater_two._issuance_lock(["*.precision.example.com"]):
+            entered.append(True)
+
+    async with updater_one._issuance_lock(["*.example.com"]):
+        waiter = asyncio.create_task(wait_for_default_namespace())
+        await asyncio.sleep(0.15)
+        assert entered == []
+
+    await asyncio.wait_for(waiter, timeout=1)
+    assert entered == [True]
+    assert len(list((state_root / "locks").glob("*.lock"))) == 1
 
 
 def test_multi_san_group_checks_primary_certificate_once(tmp_path):
@@ -299,7 +410,7 @@ def test_certificate_covers_domains_reads_leaf_sans(tmp_path):
         dns_client=FakeDNSClient(zones=["example.com"]),
     )
     _write_test_certificate(
-        tmp_path / "example.com" / "fullchain.pem",
+        tmp_path / "example.com" / "default" / "fullchain.pem",
         ["example.com", "*.example.com"],
     )
 
@@ -358,16 +469,214 @@ def test_certificate_domains_reject_path_traversal(tmp_path):
             )
 
 
-def test_domain_key_path_stays_inside_cert_dir(tmp_path):
+def test_default_certificate_layout_uses_zone_and_default_scope(tmp_path):
+    updater = SSLCertUpdater(
+        domains=["example.com", "*.example.com"],
+        email="admin@example.com",
+        cert_dir=tmp_path,
+        dns_client=FakeDNSClient(zones=["example.com"]),
+    )
+
+    assert updater.resolve_certificate_dir(updater.domains) == (
+        tmp_path / "example.com" / "default"
+    ).resolve()
+
+
+def test_explicit_cert_path_uses_one_safe_relative_segment(tmp_path):
+    updater = SSLCertUpdater(
+        domains=["precision.example.com", "*.precision.example.com"],
+        email="admin@example.com",
+        cert_dir=tmp_path,
+        cert_path="precision",
+        dns_client=FakeDNSClient(zones=["example.com"]),
+    )
+
+    assert updater.resolve_certificate_dir(updater.domains) == (
+        tmp_path / "example.com" / "precision"
+    ).resolve()
+
+    for value in ("../outside", "/absolute", "nested/path", "", "."):
+        with pytest.raises(ValueError):
+            SSLCertUpdater(
+                domains=["*.example.com"],
+                email="admin@example.com",
+                cert_dir=tmp_path,
+                cert_path=value,
+                dns_client=FakeDNSClient(zones=["example.com"]),
+            )
+
+
+def test_certificate_layout_reuses_matching_existing_scope(tmp_path):
+    target = tmp_path / "example.com" / "default"
+    _write_test_certificate(target / "fullchain.pem", ["example.com", "*.example.com"])
+    updater = SSLCertUpdater(
+        domains=["example.com", "*.example.com"],
+        email="admin@example.com",
+        cert_dir=tmp_path,
+        dns_client=FakeDNSClient(zones=["example.com"]),
+    )
+
+    assert updater.resolve_certificate_dir(updater.domains) == target.resolve()
+
+
+def test_certificate_layout_suffixes_conflicting_scope(tmp_path):
+    _write_test_certificate(
+        tmp_path / "example.com" / "default" / "fullchain.pem",
+        ["unrelated.example.com"],
+    )
+    _write_test_certificate(
+        tmp_path / "example.com" / "default-2" / "fullchain.pem",
+        ["other.example.com"],
+    )
+    updater = SSLCertUpdater(
+        domains=["example.com", "*.example.com"],
+        email="admin@example.com",
+        cert_dir=tmp_path,
+        dns_client=FakeDNSClient(zones=["example.com"]),
+    )
+
+    assert updater.resolve_certificate_dir(updater.domains) == (
+        tmp_path / "example.com" / "default-3"
+    ).resolve()
+
+
+def test_disk_collision_wins_over_stale_in_memory_reservation(tmp_path):
     updater = SSLCertUpdater(
         domains=["*.example.com"],
         email="admin@example.com",
         cert_dir=tmp_path,
-        dns_client=FakeDNSClient(),
+        dns_client=FakeDNSClient(zones=["example.com"]),
     )
-    path = updater._path_in_cert_dir("_.example.com.key")
-    assert path.parent == tmp_path.resolve()
-    assert path.name == "_.example.com.key"
+    reserved = updater.resolve_certificate_dir(updater.domains)
+    assert reserved == (tmp_path / "example.com" / "default").resolve()
+
+    _write_test_certificate(
+        reserved / "fullchain.pem",
+        ["unrelated.example.com"],
+    )
+    updater._certificate_dir_cache.clear()
+
+    assert updater.resolve_certificate_dir(updater.domains) == (
+        tmp_path / "example.com" / "default-2"
+    ).resolve()
+
+
+def test_certificate_path_symlink_escape_uses_numeric_suffix(tmp_path):
+    zone_dir = tmp_path / "certs" / "example.com"
+    outside_dir = tmp_path / "outside" / "default"
+    outside_dir.mkdir(parents=True)
+    zone_dir.mkdir(parents=True)
+    try:
+        (zone_dir / "default").symlink_to(outside_dir, target_is_directory=True)
+    except OSError:
+        pytest.skip("directory symlinks are not available")
+
+    updater = SSLCertUpdater(
+        dns_client=FakeDNSClient(zones=["example.com"]),
+        domains=["*.example.com"],
+        email="ops@example.com",
+        cert_dir=tmp_path / "certs",
+    )
+
+    assert updater.resolve_certificate_dir(updater.domains) == (
+        tmp_path / "certs" / "example.com" / "default-2"
+    ).resolve()
+
+
+def test_acme_state_and_generated_keys_stay_outside_certificate_root(tmp_path):
+    chatarch_home = tmp_path / "chatarch"
+    cert_root = chatarch_home / "certs"
+    updater = SSLCertUpdater(
+        domains=["*.example.com"],
+        email="admin@example.com",
+        cert_dir=cert_root,
+        chatarch_home=chatarch_home,
+        dns_client=FakeDNSClient(zones=["example.com"]),
+    )
+
+    account_key = updater._ensure_account_key()
+    domain_key = updater._ensure_domain_key(updater.resolve_certificate_dir(updater.domains))
+
+    assert "BEGIN" in account_key
+    assert "BEGIN" in domain_key
+    assert updater.acme_state_dir == (chatarch_home / "private" / "chatdns" / "acme").resolve()
+    assert not list(cert_root.glob("*.key"))
+
+
+def test_certificate_request_writes_only_four_verified_pem_files(tmp_path):
+    from datetime import datetime, timedelta, timezone
+
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.x509.oid import NameOID
+
+    chatarch_home = tmp_path / "chatarch"
+    cert_root = chatarch_home / "certs"
+    updater = SSLCertUpdater(
+        domains=["*.precision.example.com"],
+        email="admin@example.com",
+        cert_dir=cert_root,
+        cert_path="precision",
+        chatarch_home=chatarch_home,
+        dns_client=FakeDNSClient(zones=["example.com"]),
+    )
+
+    def fake_get_crt(account_key, csr_pem, dns_update, dns_cleanup, **kwargs):
+        del account_key, dns_update, dns_cleanup, kwargs
+        csr = x509.load_pem_x509_csr(csr_pem.encode("utf-8"))
+        ca_key = ec.generate_private_key(ec.SECP256R1())
+        ca_name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Test CA")])
+        now = datetime.now(timezone.utc)
+        ca_cert = (
+            x509.CertificateBuilder()
+            .subject_name(ca_name)
+            .issuer_name(ca_name)
+            .public_key(ca_key.public_key())
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(now - timedelta(minutes=1))
+            .not_valid_after(now + timedelta(days=90))
+            .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+            .sign(ca_key, hashes.SHA256())
+        )
+        leaf = (
+            x509.CertificateBuilder()
+            .subject_name(csr.subject)
+            .issuer_name(ca_name)
+            .public_key(csr.public_key())
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(now - timedelta(minutes=1))
+            .not_valid_after(now + timedelta(days=90))
+            .add_extension(
+                csr.extensions.get_extension_for_class(x509.SubjectAlternativeName).value,
+                critical=False,
+            )
+            .sign(ca_key, hashes.SHA256())
+        )
+        return (
+            leaf.public_bytes(serialization.Encoding.PEM)
+            + ca_cert.public_bytes(serialization.Encoding.PEM)
+        ).decode("utf-8")
+
+    with patch("chatdns.cert.get_crt", side_effect=fake_get_crt):
+        assert asyncio.run(
+            updater._request_certificate_for_domains(updater.domains)
+        ) is True
+
+    certificate_dir = cert_root / "example.com" / "precision"
+    assert sorted(path.name for path in certificate_dir.iterdir()) == [
+        "cert.pem",
+        "chain.pem",
+        "fullchain.pem",
+        "privkey.pem",
+    ]
+    assert stat.S_IMODE((certificate_dir / "privkey.pem").stat().st_mode) == 0o600
+    assert updater.verify_certificate_key_match(
+        certificate_dir / "cert.pem", certificate_dir / "privkey.pem"
+    )
+    assert sorted(path.name for path in updater.acme_state_dir.iterdir()) == [
+        "account.key"
+    ]
 
 
 def test_split_pem_chain_preserves_certificate_boundaries():
@@ -377,6 +686,81 @@ def test_split_pem_chain_preserves_certificate_boundaries():
     assert leaf == one
     assert chain == two
     assert chain.count("-----END CERTIFICATE-----") == 1
+
+
+def test_cert_manifest_renders_legacy_infra_manifest_as_table(tmp_path):
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "certificate_groups": [
+                    {
+                        "id": "cubenlp-precision",
+                        "managed_zone": "cubenlp.cn",
+                        "local_dir": "cubenlp.cn/precision",
+                        "domains": ["*.precision.cubenlp.cn"],
+                        "deployments": [
+                            {"enabled": True},
+                            {"enabled": False},
+                        ],
+                        "readiness": "preflight required",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        main, ["cert", "manifest", str(manifest)], catch_exceptions=False
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Registered Domain" in result.output
+    assert "cubenlp-precision" in result.output
+    assert "cubenlp.cn/precision" in result.output
+    assert "1/2" in result.output
+    assert "preflight required" in result.output
+
+
+@pytest.mark.parametrize("content", ["", "{}", '{"certificates": {}}'])
+def test_cert_manifest_accepts_empty_infra_manifest(tmp_path, content):
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(content, encoding="utf-8")
+
+    result = CliRunner().invoke(main, ["cert", "manifest", str(manifest)])
+
+    assert result.exit_code == 0, result.output
+    assert "No certificate entries." in result.output
+
+
+def test_cert_manifest_rejects_invalid_json(tmp_path):
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text("{not-json", encoding="utf-8")
+
+    result = CliRunner().invoke(main, ["cert", "manifest", str(manifest)])
+
+    assert result.exit_code != 0
+    assert "Unable to read manifest" in result.output
+
+
+def test_cert_path_cli_validation_is_a_click_error(tmp_path):
+    result = CliRunner().invoke(
+        main,
+        [
+            "cert",
+            "check",
+            "example.com",
+            "--cert-dir",
+            str(tmp_path),
+            "--cert-path",
+            "../outside",
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert "Invalid value for '--cert-path'" in result.output
+    assert "Traceback" not in result.output
 
 
 def test_dns_update_failure_causes_certificate_request_failure(tmp_path):

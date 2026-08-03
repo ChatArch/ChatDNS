@@ -26,8 +26,9 @@ chatdns records test.example.com
 chatdns set test.example.com -t A -v 1.2.3.4
 chatdns delete test.example.com -t A -v 1.2.3.4 --yes
 chatdns ip
-chatdns cert apply -d example.com -d '*.example.com' -e admin@example.com --provider aliyun
-chatdns cert check example.com
+chatdns cert apply -d '*.precision.example.com' -e admin@example.com --provider aliyun --cert-path precision
+chatdns cert check '*.precision.example.com' --cert-path precision
+chatdns cert manifest ./manifest.json
 ```
 
 Supported providers in this release:
@@ -52,9 +53,9 @@ ChatDNS reads provider credentials and defaults from environment / ChatEnv-compa
 
 Active ChatEnv profiles are loaded automatically from `$CHATARCH_HOME/envs` (default: `~/.chatarch/envs`). Use `--env/-e` to select a named provider profile, either globally before the command (`chatdns --env work list -p tencent`) or on DNS commands after the provider (`chatdns list -p tencent -e work`). Command-level `--env/-e` overrides the global value. `chatdns cert apply` keeps `-e` for email, so use `--env work` there.
 
-Certificate paths use this precedence: explicit `--cert-dir` / Python `cert_dir`, then ChatEnv `CHATDNS_CERT_DIR`, then `$CHATARCH_HOME/certs`. This keeps wildcard and SAN certificate groups inside the ChatArch-managed home by default while preserving an explicit per-command override.
+Certificate roots use this precedence: explicit `--cert-dir` / Python `cert_dir`, then ChatEnv `CHATDNS_CERT_DIR`, then `$CHATARCH_HOME/certs`. Each certificate is stored at `<registered-domain>/<cert-path>/`; an omitted path uses `default`, collisions use numeric suffixes, and the same SAN set reuses its existing directory. ACME state stays under `$CHATARCH_HOME/private/chatdns/acme`, outside the certificate root.
 
-See the [certificate storage and creation rules](https://arch.gh.wzhecnu.cn/ChatDNS/certificate-storage/) for the generated file tree, permissions, multi-SAN renewal behavior, central managed-zone layout, and remote infrastructure boundary.
+See the [certificate storage and creation rules](https://arch.gh.wzhecnu.cn/ChatDNS/en/certificate-storage/) for the generated file tree, permissions, multi-SAN renewal behavior, central managed-zone layout, and remote infrastructure boundary.
 
 Provider aliases are registered through the package's `chatenv.configs` entry point as `chatdns.config`.
 

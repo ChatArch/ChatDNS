@@ -26,8 +26,9 @@ chatdns records test.example.com
 chatdns set test.example.com -t A -v 1.2.3.4
 chatdns delete test.example.com -t A -v 1.2.3.4 --yes
 chatdns ip
-chatdns cert apply -d example.com -d '*.example.com' -e admin@example.com --provider aliyun
-chatdns cert check example.com
+chatdns cert apply -d '*.precision.example.com' -e admin@example.com --provider aliyun --cert-path precision
+chatdns cert check '*.precision.example.com' --cert-path precision
+chatdns cert manifest ./manifest.json
 ```
 
 当前支持：
@@ -52,7 +53,7 @@ ChatDNS 通过环境变量 / ChatEnv-compatible config 字段读取 provider 凭
 
 ChatDNS 会自动加载 `$CHATARCH_HOME/envs`（默认 `~/.chatarch/envs`）下的 active ChatEnv profile。使用 `--env/-e` 可切换 named provider profile：既可以放在全局位置（`chatdns --env work list -p tencent`），也可以放在 DNS 命令上跟随 provider 使用（`chatdns list -p tencent -e work`）。命令级 `--env/-e` 会覆盖全局值。`chatdns cert apply` 的 `-e` 保留给 email，因此证书命令使用 `--env work`。
 
-证书目录优先级为：显式 `--cert-dir` / Python `cert_dir`，其次是 ChatEnv `CHATDNS_CERT_DIR`，最后回退到 `$CHATARCH_HOME/certs`。泛解析与 SAN 证书因此默认集中保存在 ChatArch 内部，同时仍可按命令显式覆盖。
+证书根目录优先级为：显式 `--cert-dir` / Python `cert_dir`，其次是 ChatEnv `CHATDNS_CERT_DIR`，最后回退到 `$CHATARCH_HOME/certs`。每张证书存放在 `<注册域名>/<cert-path>/`；未指定名称时使用 `default`，冲突时增加数字后缀，相同 SAN 集续期复用原目录。ACME 私有状态位于证书根外的 `$CHATARCH_HOME/private/chatdns/acme`。
 
 完整的自动创建目录、文件权限、多 SAN 续期、中央 managed-zone 分层与远端 Infra 边界见[证书目录与创建规则](https://arch.gh.wzhecnu.cn/ChatDNS/certificate-storage/)。
 

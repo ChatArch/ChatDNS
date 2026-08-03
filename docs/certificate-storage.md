@@ -41,118 +41,116 @@ chatdns --chatarch-home /srv/chatarch --env work cert check example.com
 chatdns cert check example.com --cert-dir /tmp/cert-audit
 ```
 
-## ChatDNS 自动创建结构
+## 两层证书目录
 
-假设有效证书根目录为 `$CHATARCH_HOME/certs`，申请：
+ChatDNS 固定使用：
+
+```text
+$CHATARCH_HOME/certs/<注册域名>/<cert-path>/
+```
+
+这里的“注册域名”是 provider 中与请求名称最长匹配的托管 zone。申请根泛域证书时：
 
 ```bash
 chatdns cert apply \
-  -d example.com \
   -d '*.example.com' \
   -e admin@example.com \
   --provider aliyun
 ```
 
-成功后结构为：
+未指定 `--cert-path`，默认结果为：
 
 ```text
 $CHATARCH_HOME/certs/
-├── account.key
-├── example.com.key
+├── README.md                 # 可选；证书根唯一的说明文件
 └── example.com/
-    ├── cert.pem
-    ├── chain.pem
-    ├── fullchain.pem
-    └── privkey.pem
+    └── default/
+        ├── cert.pem
+        ├── chain.pem
+        ├── fullchain.pem
+        └── privkey.pem
 ```
 
-规则如下：
-
-- `account.key`：该证书根目录使用的 ACME account key；首次需要时生成。
-- `<证书主域>.key`：持久化的证书私钥；证书主域是同一 DNS 托管 zone 组中的第一个请求域名。
-- `<证书主域>/`：成功取得证书后创建的输出目录。
-- 通配符用于文件名时，`*` 会转换为 `_`，避免形成非法或危险路径。
-- ACME 在签发前失败时，account/domain key 可能已经创建，但证书输出目录可能尚不存在。
-
-## 文件职责与权限
-
-| 文件/目录 | 用途 | 权限 |
-|---|---|---:|
-| 证书根目录 | 保存 account key、domain key 与证书组 | `0700` |
-| 证书组目录 | 保存一张 SAN 证书的部署文件 | `0700` |
-| `account.key` | ACME 账户私钥 | `0600` |
-| `<证书主域>.key` | 持久化证书私钥 | `0600` |
-| `privkey.pem` | 部署给 Nginx 的私钥 | `0600` |
-| `cert.pem` | 叶子证书 | `0644` |
-| `chain.pem` | 中间证书链 | `0644` |
-| `fullchain.pem` | 叶子证书加中间链，供 Nginx 使用 | `0644` |
-
-不要把证书根目录提交到 Git，也不要在日志、报告或聊天中输出任何私钥内容。
-
-## 泛域与多 SAN 分组
-
-ChatDNS 先通过 provider 识别 DNS 托管 zone，再把同一 zone 的输入域名作为一张 SAN 证书处理。列表中的第一个域名决定证书目录和持久化 key 名称，因此建议把非通配主域放在第一位：
-
-```bash
--d example.com -d '*.example.com'
-```
-
-续期判断以这张主证书为单位：
-
-1. 检查主证书是否存在及是否接近到期；
-2. 检查证书 SAN 是否完整覆盖本组所有请求域名；
-3. 只有缺失、临期或 SAN 不完整时才续期。
-
-这避免了把 `*.example.com` 误当成另一份本地证书并重复申请。
-
-## ChatArch 中央证书库
-
-多 zone 中央管理采用两层确定性路径：
-
-```text
-$CHATARCH_HOME/certs/<DNS 托管主域>/<证书主域>/
-```
-
-中央 runner 把 zone 目录显式传给 ChatDNS：
+申请更深一层的泛域证书时，建议显式使用 URI 对应名称：
 
 ```bash
 chatdns cert apply \
-  --cert-dir "$CHATARCH_HOME/certs/example.com" \
-  -d example.com \
-  -d '*.example.com' \
-  -e admin@example.com
+  -d '*.precision.example.com' \
+  -e admin@example.com \
+  --provider aliyun \
+  --cert-path precision
 ```
 
-ChatDNS 再按证书主域生成最后一层，结果为：
+结果是 `$CHATARCH_HOME/certs/example.com/precision/`。`--cert-path` 必须是一个安全目录段，不能是绝对路径，不能包含 `/`、`\`、`.`、`..` 或路径穿越。ChatDNS 可以显示从泛域名推导的建议，但不会静默替换显式名称或默认行为。
+
+## 默认名、冲突和续期复用
+
+- 未指定 `--cert-path` 时先选择 `default`。
+- 如果该目录已属于不同 SAN 集，依次选择 `default-2`、`default-3`。
+- 显式名称冲突时同样使用 `<name>-2`、`<name>-3`。
+- 如果两层目录中已经存在完全相同的标准化 SAN 集，续期复用原目录，不产生新编号。
+- `chatdns cert check` 可用 `--cert-path` 精确限定名称；未限定时会在两层目录中查找覆盖请求域名的证书。
+
+一个泛域只覆盖一层：`*.example.com` 覆盖 `nas.example.com`，不覆盖 `foo.precision.example.com`；后一类名称需要 `*.precision.example.com`。
+
+## 文件职责、权限和 ACME 私有状态
+
+每个末级证书目录只允许四个 PEM：
+
+| 文件/目录 | 用途 | 权限 |
+|---|---|---:|
+| 证书根目录 | 注册域名目录和可选 `README.md` | `0700` |
+| 证书末级目录 | 一张证书的四个部署文件 | `0700` |
+| `privkey.pem` | 证书私钥 | `0600` |
+| `cert.pem` | 叶子证书 | `0644` |
+| `chain.pem` | 中间证书链 | `0644` |
+| `fullchain.pem` | 叶子证书加中间链 | `0644` |
+
+ACME account key、签发临时目录和临时 key 不进入 `certs/`。默认私有状态目录为：
 
 ```text
-$CHATARCH_HOME/certs/example.com/example.com/
+$CHATARCH_HOME/private/chatdns/acme/
 ```
 
-manifest 中必须满足：
+新证书私钥先在内存中生成；签发返回后，ChatDNS 在私有状态目录中完成拆链和证书/私钥匹配验证，再把四个 PEM 写入目标目录。不要把证书根或 ACME 私有状态提交到 Git，也不要输出私钥内容。
 
-```text
-managed_zone = example.com
-primary_domain = example.com
-local_dir = example.com/example.com
+## SAN 分组和续期判断
+
+同一 provider 托管 zone 的输入名称作为一张 SAN 证书处理。续期时：
+
+1. 定位完整 SAN 集对应的现有两层目录；
+2. 检查证书是否存在及是否在 30 天内到期；
+3. 检查 SAN 是否覆盖全部请求名称；
+4. 仅在缺失、临期、SAN 不完整或显式 `--force` 时申请。
+
+## Infra manifest 可视化
+
+`manifest.json` 和模型按现场情况编写的 `scripts/` 属于独立 Infra 工作区，不属于证书根。ChatDNS 只读展示 manifest，不会创建或改写它：
+
+```bash
+cd Infra
+chatdns cert manifest
+chatdns cert manifest ./manifest.json
 ```
 
-这种分层让 provider/profile、ACME account、日志、续期和部署都能按 DNS 托管主域审计。
+空文件、空对象和空 `certificates` 容器都会显示为空表。当前命令兼容 `certificate_groups`、`certificates` 和 `groups` 三种顶层集合，并显示 ID、注册域名、证书路径、SAN、部署数量与状态。
 
 ## 远端 Infra 路径
 
-ChatArch Infra 使用相同的相对路径，远端目标为：
+远端保持同一相对路径：
 
 ```text
-<remote-home>/.chatarch/certs/<DNS 托管主域>/<证书主域>/
+<remote-home>/.chatarch/certs/<注册域名>/<cert-path>/
 ```
 
-Nginx 指向其中的 `fullchain.pem` 和 `privkey.pem`。远端迁移必须由 Infra 同步层完成，并遵循：备份旧证书和 Nginx 配置、原子写入、`nginx -t`、reload、失败回滚，以及最终按 SNI 回读线上证书。ChatDNS CLI 本身只负责申请和本地落盘，不会自动修改远端 Nginx。
+Nginx 指向其中的 `fullchain.pem` 和 `privkey.pem`。具体同步/更新脚本由模型根据实际服务器手写，不固化进 ChatDNS。远端变更必须先备份证书和配置，完成原子安装、配置测试、reload、失败回滚，并按 SNI 回读线上证书。
 
 ## 安全检查
 
 生产申请前建议先运行 `--staging`。正式申请后至少验证：
 
+- 目标路径严格是两层目录；
+- 末级目录只有四个 PEM；
 - SAN 完整覆盖预期域名；
 - `cert.pem` 与 `privkey.pem` 公钥匹配；
 - `_acme-challenge` 临时 TXT 已清理；
