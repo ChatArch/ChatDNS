@@ -1,5 +1,6 @@
 import chatdns
 from importlib.metadata import entry_points
+from pathlib import Path
 
 from click.testing import CliRunner
 
@@ -37,6 +38,14 @@ def test_chatenv_config_classes():
     assert TencentConfig.TENCENT_REGION_ID.value == "ap-guangzhou"
     assert AliyunConfig.ALIBABA_CLOUD_ACCESS_KEY_SECRET.is_sensitive is True
     assert TencentConfig.TENCENT_SECRET_KEY.is_sensitive is True
+
+
+def test_documentation_uses_case_sensitive_pages_path():
+    root = Path(__file__).resolve().parents[1]
+    expected = "https://arch.gh.wzhecnu.cn/ChatDNS/"
+
+    assert f'Documentation = "{expected}"' in (root / "pyproject.toml").read_text()
+    assert f"site_url: {expected}" in (root / "mkdocs.yml").read_text()
 
 
 def test_public_api_exports_dns_helpers():
