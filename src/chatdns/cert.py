@@ -98,6 +98,7 @@ class SSLCertUpdater:
         self.cert_dir = resolve_cert_dir(cert_dir, home=chatarch_home)
         self.cert_dir.mkdir(parents=True, exist_ok=True)
         self.cert_dir = self.cert_dir.resolve()
+        self.cert_dir.chmod(0o700)
         self.staging = staging
         self.force = force
         self.logger = logger or setup_logger(__name__, log_file=log_file)
@@ -189,6 +190,44 @@ class SSLCertUpdater:
             self.logger.info(f"域名 {domain} 证书暂不需要续期")
             return False
 
+    def certificate_covers_domains(self, primary_domain: str, domains: List[str]) -> bool:
+        """Return whether the stored primary certificate covers every requested SAN."""
+        from cryptography import x509
+        from cryptography.x509.oid import ExtensionOID
+
+        cert_file = self._domain_dir(primary_domain) / "fullchain.pem"
+        if not cert_file.is_file():
+            return False
+        try:
+            leaf_pem, _ = split_pem_chain(cert_file.read_text())
+            certificate = x509.load_pem_x509_certificate(leaf_pem.encode("utf-8"))
+            extension = certificate.extensions.get_extension_for_oid(
+                ExtensionOID.SUBJECT_ALTERNATIVE_NAME
+            ).value
+            if not isinstance(extension, x509.SubjectAlternativeName):
+                return False
+            names = extension.get_values_for_type(x509.DNSName)
+        except (OSError, ValueError, x509.ExtensionNotFound) as exc:
+            self.logger.warning(f"无法读取证书 SAN {primary_domain}: {exc}")
+            return False
+
+        expected = {normalize_certificate_domain(domain) for domain in domains}
+        actual = {normalize_certificate_domain(domain) for domain in names}
+        missing = sorted(expected - actual)
+        if missing:
+            self.logger.info(
+                f"域名组 {primary_domain} 的证书缺少 SAN: {', '.join(missing)}"
+            )
+            return False
+        return True
+
+    def needs_group_renewal(self, domains: List[str]) -> bool:
+        """Check one stored certificate for expiry and complete SAN coverage."""
+        primary_domain = domains[0]
+        return self.needs_renewal(primary_domain) or not self.certificate_covers_domains(
+            primary_domain, domains
+        )
+
     def extract_domain_from_fqdn(self, fqdn: str) -> str:
         """
         从FQDN中提取主域名
@@ -256,9 +295,7 @@ class SSLCertUpdater:
             self.logger.info(f"处理域名组: {main_domain} -> {domain_list}")
 
             # 检查是否需要续期
-            needs_update = self.force or any(
-                self.needs_renewal(domain) for domain in domain_list
-            )
+            needs_update = self.force or self.needs_group_renewal(domain_list)
             if self.force:
                 self.logger.info(f"域名组 {main_domain} 已启用强制申请/续期")
 
@@ -476,6 +513,7 @@ class SSLCertUpdater:
 
             # Save certificate and key in domain directory
             domain_dir.mkdir(parents=True, exist_ok=True)
+            domain_dir.chmod(0o700)
 
             # Save Private Key
             key_path = domain_dir / "privkey.pem"
@@ -486,6 +524,7 @@ class SSLCertUpdater:
             # Save Full Chain
             fullchain_path = domain_dir / "fullchain.pem"
             fullchain_path.write_text(crt_pem)
+            fullchain_path.chmod(0o644)
             self.logger.info(f"Full Chain saved to {fullchain_path}")
 
             # Split into cert and chain
@@ -493,10 +532,12 @@ class SSLCertUpdater:
                 leaf_cert, chain_cert = split_pem_chain(crt_pem)
                 cert_path = domain_dir / "cert.pem"
                 cert_path.write_text(leaf_cert)
+                cert_path.chmod(0o644)
                 self.logger.info(f"Cert saved to {cert_path}")
                 if chain_cert:
                     chain_path = domain_dir / "chain.pem"
                     chain_path.write_text(chain_cert)
+                    chain_path.chmod(0o644)
                     self.logger.info(f"Chain saved to {chain_path}")
             except Exception as e:
                 self.logger.warning(f"Failed to split certificate chain: {e}")

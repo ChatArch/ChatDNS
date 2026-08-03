@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from string import Template
 from typing import Any
 
 from chatenv.paths import get_paths
@@ -82,7 +83,15 @@ def resolve_cert_dir(
     """Resolve explicit, ChatEnv-managed, or ChatArch-default certificate storage."""
     selected = cert_dir if cert_dir is not None else ChatDNSConfig.CHATDNS_CERT_DIR.value
     if selected is not None and str(selected).strip():
-        return Path(os.path.expandvars(str(selected))).expanduser()
+        variables = dict(os.environ)
+        variables["CHATARCH_HOME"] = str(get_paths(home).home_dir)
+        try:
+            expanded = Template(str(selected)).substitute(variables)
+        except (KeyError, ValueError) as exc:
+            raise ValueError(
+                f"Unable to expand certificate directory {selected!r}: {exc}"
+            ) from exc
+        return Path(expanded).expanduser()
     return get_paths(home).home_dir / "certs"
 
 

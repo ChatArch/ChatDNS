@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from chatdns.config import AliyunConfig, ChatDNSConfig, TencentConfig
-from chatdns.env import load_chatenv, resolve_cert_dir
+from chatdns.env import load_chatdns_config, load_chatenv, resolve_cert_dir
 
 
 def _write_env(home: Path, storage: str, filename: str, content: str) -> None:
@@ -103,3 +103,56 @@ def test_resolve_cert_dir_defaults_inside_chatarch_home(tmp_path):
     load_chatenv(home=tmp_path)
 
     assert resolve_cert_dir(home=tmp_path) == tmp_path.resolve() / "certs"
+
+
+def test_resolve_cert_dir_expands_effective_home_not_ambient_home(
+    monkeypatch, tmp_path
+):
+    ambient_home = tmp_path / "ambient"
+    selected_home = tmp_path / "selected"
+    monkeypatch.setenv("CHATARCH_HOME", str(ambient_home))
+    _write_env(
+        selected_home,
+        "ChatDNS",
+        ".env",
+        "CHATDNS_CERT_DIR='$CHATARCH_HOME/certificates'\n",
+    )
+
+    load_chatdns_config(home=selected_home)
+
+    assert resolve_cert_dir(home=selected_home) == selected_home.resolve() / "certificates"
+
+
+def test_resolve_cert_dir_uses_named_chatdns_profile_with_selected_home(tmp_path):
+    selected_home = tmp_path / "selected"
+    _write_env(
+        selected_home,
+        "ChatDNS",
+        ".env",
+        "CHATDNS_CERT_DIR='/active/certificates'\n",
+    )
+    _write_env(
+        selected_home,
+        "ChatDNS",
+        "work.env",
+        "CHATDNS_CERT_DIR='$CHATARCH_HOME/work-certificates'\n",
+    )
+
+    load_chatdns_config(env_profile="work", home=selected_home)
+
+    assert resolve_cert_dir(home=selected_home) == (
+        selected_home.resolve() / "work-certificates"
+    )
+
+
+def test_resolve_cert_dir_rejects_unknown_environment_variable(tmp_path):
+    _write_env(
+        tmp_path,
+        "ChatDNS",
+        ".env",
+        "CHATDNS_CERT_DIR='$CHATDNS_UNKNOWN_ROOT/certificates'\n",
+    )
+    load_chatdns_config(home=tmp_path)
+
+    with pytest.raises(ValueError, match="CHATDNS_UNKNOWN_ROOT"):
+        resolve_cert_dir(home=tmp_path)

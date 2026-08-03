@@ -1,8 +1,10 @@
+import asyncio
+import stat
 from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from chatdns.cli import main, _certbot_challenge_record
 from chatdns.cert import SSLCertUpdater, normalize_certificate_domain, split_pem_chain
@@ -40,6 +42,34 @@ class FakeDNSClient:
     def delete_record_value(self, *args):
         self.deleted.append(args)
         return True
+
+
+def _write_test_certificate(path: Path, sans: list[str]) -> None:
+    from datetime import datetime, timedelta, timezone
+
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.x509.oid import NameOID
+
+    key = ec.generate_private_key(ec.SECP256R1())
+    now = datetime.now(timezone.utc)
+    certificate = (
+        x509.CertificateBuilder()
+        .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, sans[0])]))
+        .issuer_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, sans[0])]))
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - timedelta(minutes=1))
+        .not_valid_after(now + timedelta(days=30))
+        .add_extension(
+            x509.SubjectAlternativeName([x509.DNSName(domain) for domain in sans]),
+            critical=False,
+        )
+        .sign(key, hashes.SHA256())
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(certificate.public_bytes(serialization.Encoding.PEM))
 
 
 def test_cert_apply_invokes_ssl_updater_without_live_acme():
@@ -158,6 +188,19 @@ def test_ssl_updater_uses_chatenv_cert_dir_for_python_api(monkeypatch, tmp_path)
     assert updater.cert_dir == configured.resolve()
 
 
+def test_ssl_updater_secures_certificate_root(tmp_path):
+    cert_root = tmp_path / "certificates"
+
+    SSLCertUpdater(
+        domains=["example.com"],
+        email="admin@example.com",
+        cert_dir=cert_root,
+        dns_client=FakeDNSClient(),
+    )
+
+    assert stat.S_IMODE(cert_root.stat().st_mode) == 0o700
+
+
 def test_cert_apply_requires_domain_in_non_interactive_mode():
     result = CliRunner().invoke(
         main, ["cert", "apply", "-e", "admin@example.com", "-I"]
@@ -181,6 +224,62 @@ def test_cert_check_does_not_initialize_real_dns_client(tmp_path):
     assert "example.com: no local certificate" in result.output
     kwargs = updater_cls.call_args.kwargs
     assert kwargs["dns_client"] is not None
+
+
+def test_multi_san_group_checks_primary_certificate_once(tmp_path):
+    updater = SSLCertUpdater(
+        domains=["example.com", "*.example.com"],
+        email="admin@example.com",
+        cert_dir=tmp_path,
+        dns_client=FakeDNSClient(zones=["example.com"]),
+    )
+    updater.needs_renewal = Mock(return_value=False)
+    updater.certificate_covers_domains = Mock(return_value=True)
+    updater._request_certificate_for_domains = AsyncMock(return_value=True)
+
+    assert asyncio.run(updater.update_certificates()) is True
+    updater.needs_renewal.assert_called_once_with("example.com")
+    updater.certificate_covers_domains.assert_called_once_with(
+        "example.com", ["example.com", "*.example.com"]
+    )
+    updater._request_certificate_for_domains.assert_not_awaited()
+
+
+def test_multi_san_group_renews_when_certificate_lacks_a_san(tmp_path):
+    updater = SSLCertUpdater(
+        domains=["example.com", "*.example.com"],
+        email="admin@example.com",
+        cert_dir=tmp_path,
+        dns_client=FakeDNSClient(zones=["example.com"]),
+    )
+    updater.needs_renewal = Mock(return_value=False)
+    updater.certificate_covers_domains = Mock(return_value=False)
+    updater._request_certificate_for_domains = AsyncMock(return_value=True)
+
+    assert asyncio.run(updater.update_certificates()) is True
+    updater._request_certificate_for_domains.assert_awaited_once_with(
+        ["example.com", "*.example.com"]
+    )
+
+
+def test_certificate_covers_domains_reads_leaf_sans(tmp_path):
+    updater = SSLCertUpdater(
+        domains=["example.com", "*.example.com"],
+        email="admin@example.com",
+        cert_dir=tmp_path,
+        dns_client=FakeDNSClient(zones=["example.com"]),
+    )
+    _write_test_certificate(
+        tmp_path / "example.com" / "fullchain.pem",
+        ["example.com", "*.example.com"],
+    )
+
+    assert updater.certificate_covers_domains(
+        "example.com", ["example.com", "*.example.com"]
+    )
+    assert not updater.certificate_covers_domains(
+        "example.com", ["example.com", "*.example.com", "api.example.com"]
+    )
 
 
 def test_acme_challenge_record_handles_wildcards_and_subdomains():
