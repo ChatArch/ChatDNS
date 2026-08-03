@@ -5,7 +5,7 @@
     <a href="https://github.com/ChatArch/ChatDNS/actions/workflows/ci.yml">
         <img src="https://github.com/ChatArch/ChatDNS/actions/workflows/ci.yml/badge.svg" alt="Tests" />
     </a>
-    <a href="https://arch.gh.wzhecnu.cn/ChatDNS/">
+    <a href="https://arch.gh.wzhecnu.cn/chatdns/">
         <img src="https://img.shields.io/badge/docs-latest-blue.svg" alt="Docs" />
     </a>
 </p>
@@ -54,7 +54,7 @@ Active ChatEnv profiles are loaded automatically from `$CHATARCH_HOME/envs` (def
 
 Certificate paths use this precedence: explicit `--cert-dir` / Python `cert_dir`, then ChatEnv `CHATDNS_CERT_DIR`, then `$CHATARCH_HOME/certs`. This keeps wildcard and SAN certificate groups inside the ChatArch-managed home by default while preserving an explicit per-command override.
 
-See the [certificate storage and creation rules](https://arch.gh.wzhecnu.cn/ChatDNS/certificate-storage/) for the generated file tree, permissions, multi-SAN renewal behavior, central managed-zone layout, and remote infrastructure boundary.
+See the [certificate storage and creation rules](https://arch.gh.wzhecnu.cn/chatdns/certificate-storage/) for the generated file tree, permissions, multi-SAN renewal behavior, central managed-zone layout, and remote infrastructure boundary.
 
 Provider aliases are registered through the package's `chatenv.configs` entry point as `chatdns.config`.
 

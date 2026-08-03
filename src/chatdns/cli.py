@@ -855,13 +855,19 @@ def cert_check(ctx, domains, cert_dir, provider):
         dns_client=object(),
         logger=logger,
     )
-    for domain in domains:
-        expiry = updater.check_cert_expiry(domain)
+    for domain_list in updater._group_domains_by_main_domain().values():
+        primary_domain = domain_list[0]
+        expiry = updater.check_cert_expiry(primary_domain)
         if expiry is None:
-            click.echo(f"{domain}: no local certificate")
+            for domain in domain_list:
+                click.echo(f"{domain}: no local certificate")
             continue
-        needs = updater.needs_renewal(domain)
-        click.echo(f"{domain}: expires {expiry.isoformat()} renew={'yes' if needs else 'no'}")
+        needs = updater.needs_group_renewal(domain_list)
+        for domain in domain_list:
+            click.echo(
+                f"{domain}: expires {expiry.isoformat()} "
+                f"renew={'yes' if needs else 'no'}"
+            )
 
 
 def _certbot_challenge_record(domain: str, dns_client=None) -> tuple[str, str]:

@@ -44,7 +44,7 @@ class FakeDNSClient:
         return True
 
 
-def _write_test_certificate(path: Path, sans: list[str]) -> None:
+def _write_test_certificate(path: Path, sans: list[str], *, days: int = 90) -> None:
     from datetime import datetime, timedelta, timezone
 
     from cryptography import x509
@@ -61,7 +61,7 @@ def _write_test_certificate(path: Path, sans: list[str]) -> None:
         .public_key(key.public_key())
         .serial_number(x509.random_serial_number())
         .not_valid_before(now - timedelta(minutes=1))
-        .not_valid_after(now + timedelta(days=30))
+        .not_valid_after(now + timedelta(days=days))
         .add_extension(
             x509.SubjectAlternativeName([x509.DNSName(domain) for domain in sans]),
             critical=False,
@@ -213,6 +213,9 @@ def test_cert_check_does_not_initialize_real_dns_client(tmp_path):
     runner = CliRunner()
     with patch("chatdns.cert.SSLCertUpdater") as updater_cls:
         updater = updater_cls.return_value
+        updater._group_domains_by_main_domain.return_value = {
+            "example.com": ["example.com"]
+        }
         updater.check_cert_expiry.return_value = None
         result = runner.invoke(
             main,
@@ -224,6 +227,32 @@ def test_cert_check_does_not_initialize_real_dns_client(tmp_path):
     assert "example.com: no local certificate" in result.output
     kwargs = updater_cls.call_args.kwargs
     assert kwargs["dns_client"] is not None
+
+
+def test_cert_check_reports_one_multi_san_certificate_for_all_names(tmp_path):
+    _write_test_certificate(
+        tmp_path / "example.com" / "fullchain.pem",
+        ["example.com", "*.example.com"],
+    )
+
+    result = CliRunner().invoke(
+        main,
+        [
+            "cert",
+            "check",
+            "example.com",
+            "*.example.com",
+            "--cert-dir",
+            str(tmp_path),
+        ],
+        catch_exceptions=False,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "example.com: expires" in result.output
+    assert "*.example.com: expires" in result.output
+    assert "no local certificate" not in result.output
+    assert result.output.count("renew=no") == 2
 
 
 def test_multi_san_group_checks_primary_certificate_once(tmp_path):
