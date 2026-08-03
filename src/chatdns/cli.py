@@ -938,19 +938,28 @@ def cert_apply(
         )
     except ValueError as exc:
         raise click.ClickException(str(exc)) from exc
+    domain_groups = list(updater._group_domains_by_main_domain().values())
+    if not domain_groups:
+        raise click.ClickException("无法将请求域名分组到托管域。")
+    preview_dirs = []
     try:
-        output_dir = updater.resolve_certificate_dir(provided_domains)
+        for domain_list in domain_groups:
+            output_dir = updater.resolve_certificate_dir(domain_list)
+            preview_dirs.append(output_dir)
+            click.echo(f"证书路径（预览）: {output_dir}")
+            suggestion = updater.suggest_cert_path(domain_list)
+            if cert_path is None and suggestion != "default":
+                click.echo(
+                    f"路径建议: --cert-path {suggestion}（本次仍使用 default[-N]）"
+                )
     except ValueError as exc:
         raise click.ClickException(str(exc)) from exc
-    click.echo(f"证书路径（预览）: {output_dir}")
-    suggestion = updater.suggest_cert_path(provided_domains)
-    if cert_path is None and suggestion != "default":
-        click.echo(f"路径建议: --cert-path {suggestion}（本次仍使用 default[-N]）")
     success = asyncio.run(updater.run_once())
     if not success:
         raise click.ClickException("证书申请/续期失败。")
-    actual_dir = updater.find_certificate_dir(provided_domains) or output_dir
-    click.echo(f"证书路径（实际）: {actual_dir}")
+    for domain_list, output_dir in zip(domain_groups, preview_dirs):
+        actual_dir = updater.find_certificate_dir(domain_list) or output_dir
+        click.echo(f"证书路径（实际）: {actual_dir}")
     click.echo(f"证书申请/续期成功: {', '.join(provided_domains)}")
 
 

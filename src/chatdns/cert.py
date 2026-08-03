@@ -179,7 +179,17 @@ class SSLCertUpdater:
         self.logger.info(f"环境: {'测试' if staging else '生产'}")
 
     def _path_in_cert_dir(self, *parts: str) -> Path:
-        path = self.cert_dir.joinpath(*parts).resolve()
+        candidate = self.cert_dir.joinpath(*parts)
+        try:
+            relative = candidate.relative_to(self.cert_dir)
+        except ValueError as exc:
+            raise ValueError("Certificate path must stay below the certificate root") from exc
+        current = self.cert_dir
+        for part in relative.parts:
+            current /= part
+            if current.is_symlink():
+                raise ValueError(f"Certificate path cannot contain a symlink: {current}")
+        path = candidate.resolve()
         path.relative_to(self.cert_dir)
         return path
 
@@ -190,8 +200,12 @@ class SSLCertUpdater:
         from cryptography.x509.oid import ExtensionOID
 
         cert_file = directory / "fullchain.pem"
+        if cert_file.is_symlink():
+            return None
         if not cert_file.is_file():
             cert_file = directory / "cert.pem"
+        if cert_file.is_symlink():
+            return None
         if not cert_file.is_file():
             return None
         try:
@@ -222,7 +236,9 @@ class SSLCertUpdater:
         }
         candidates: list[tuple[bool, Path]] = []
         zone_dirs = [
-            path for path in sorted(self.cert_dir.iterdir()) if path.is_dir()
+            path
+            for path in sorted(self.cert_dir.iterdir())
+            if path.is_dir() and not path.is_symlink()
         ]
 
         for zone_dir in zone_dirs:
@@ -234,7 +250,7 @@ class SSLCertUpdater:
             for directory in sorted(
                 resolved_zone_dir.iterdir(), key=lambda item: item.name
             ):
-                if not directory.is_dir():
+                if not directory.is_dir() or directory.is_symlink():
                     continue
                 if not self._matches_cert_path_name(directory.name):
                     continue
@@ -272,19 +288,28 @@ class SSLCertUpdater:
     def resolve_certificate_dir(self, domains: List[str]) -> Path:
         """Return the stable two-level output directory for one SAN group."""
         normalized_domains = [normalize_certificate_domain(domain) for domain in domains]
+        if not normalized_domains:
+            raise ValueError("Certificate directory resolution requires at least one domain")
+        zones = {
+            self.extract_domain_from_fqdn(domain) for domain in normalized_domains
+        }
+        if len(zones) != 1:
+            raise ValueError(
+                "Certificate directory resolution requires domains from one managed zone"
+            )
         key = tuple(sorted(normalized_domains))
         cached = self._certificate_dir_cache.get(key)
         if cached is not None:
             return cached
 
-        zone = self.extract_domain_from_fqdn(normalized_domains[0])
+        zone = next(iter(zones))
         zone_dir = self._path_in_cert_dir(zone)
         expected_sans = set(normalized_domains)
 
         if zone_dir.is_dir():
             matches = []
             for child in sorted(zone_dir.iterdir(), key=lambda item: item.name):
-                if not child.is_dir():
+                if not child.is_dir() or child.is_symlink():
                     continue
                 if not self._matches_cert_path_name(child.name):
                     continue
@@ -348,7 +373,11 @@ class SSLCertUpdater:
             normalize_certificate_domain(domain) for domain in domains
         ]
         zone = self.extract_domain_from_fqdn(normalized_domains[0])
-        namespace = f"{zone}\n{self.cert_path or 'default'}"
+        collision_family = self.cert_path or "default"
+        suffix_pattern = re.compile(r"^(.+)-(?:[2-9]|[1-9][0-9]+)$")
+        while match := suffix_pattern.fullmatch(collision_family):
+            collision_family = match.group(1)
+        namespace = f"{zone}\n{collision_family}"
         digest = hashlib.sha256(namespace.encode("utf-8")).hexdigest()
         lock_dir = self.acme_state_dir / "locks"
         lock_dir.mkdir(parents=True, exist_ok=True)

@@ -88,6 +88,7 @@ chatdns cert apply \
 - 未指定 `--cert-path` 时先选择 `default`。
 - 如果该目录已属于不同 SAN 集，依次选择 `default-2`、`default-3`。
 - 显式名称冲突时同样使用 `<name>-2`、`<name>-3`。
+- 可能与自动编号重叠的显式名称属于同一个锁定范围，例如 `foo` 和 `foo-2` 不会并发分配同一目录。
 - 如果两层目录中已经存在完全相同的标准化 SAN 集，续期复用原目录，不产生新编号。
 - `chatdns cert check` 可用 `--cert-path` 精确限定名称；未限定时会在两层目录中查找覆盖请求域名的证书。
 
@@ -116,7 +117,7 @@ $CHATARCH_HOME/private/chatdns/acme/
 
 ## SAN 分组和续期判断
 
-同一 provider 托管 zone 的输入名称作为一张 SAN 证书处理。续期时：
+同一 provider 托管 zone 的输入名称作为一张 SAN 证书处理。一次目录解析只接受同一个托管 zone；CLI 收到多个 zone 时会先分组，再分别预览和签发。续期时：
 
 1. 定位完整 SAN 集对应的现有两层目录；
 2. 检查证书是否存在及是否在 30 天内到期；
@@ -150,6 +151,7 @@ Nginx 指向其中的 `fullchain.pem` 和 `privkey.pem`。具体同步/更新脚
 生产申请前建议先运行 `--staging`。正式申请后至少验证：
 
 - 目标路径严格是两层目录；
+- 托管域目录不是 symlink，证书 leaf 也不会通过 symlink 解析；
 - 末级目录只有四个 PEM；
 - SAN 完整覆盖预期域名；
 - `cert.pem` 与 `privkey.pem` 公钥匹配；

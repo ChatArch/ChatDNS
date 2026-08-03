@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.6 - 2026-08-04
+
+- Serialize explicit certificate paths that overlap generated numeric suffix families, such as `foo` and `foo-2`.
+- Reject managed-zone symlinks and skip symlinked certificate leaves, including links whose targets remain inside the certificate root.
+- Reject one-path resolution across multiple managed zones and preview each CLI issuance group independently.
+
 ## 0.1.5 - 2026-08-04
 
 - Store every certificate at `<registered-domain>/<cert-path>/` below the configured certificate root.
