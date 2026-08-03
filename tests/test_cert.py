@@ -519,6 +519,39 @@ def test_certificate_layout_reuses_matching_existing_scope(tmp_path):
     assert updater.resolve_certificate_dir(updater.domains) == target.resolve()
 
 
+def test_explicit_cert_path_reuses_matching_numeric_suffix_after_gap(tmp_path):
+    target = tmp_path / "example.com" / "precision-3"
+    _write_test_certificate(target / "fullchain.pem", ["*.precision.example.com"])
+    updater = SSLCertUpdater(
+        domains=["*.precision.example.com"],
+        email="admin@example.com",
+        cert_dir=tmp_path,
+        cert_path="precision",
+        dns_client=FakeDNSClient(zones=["example.com"]),
+    )
+
+    assert updater.resolve_certificate_dir(updater.domains) == target.resolve()
+
+
+def test_explicit_cert_path_ignores_non_numeric_suffix(tmp_path):
+    unrelated = tmp_path / "example.com" / "precision-old"
+    _write_test_certificate(
+        unrelated / "fullchain.pem",
+        ["*.precision.example.com"],
+    )
+    updater = SSLCertUpdater(
+        domains=["*.precision.example.com"],
+        email="admin@example.com",
+        cert_dir=tmp_path,
+        cert_path="precision",
+        dns_client=FakeDNSClient(zones=["example.com"]),
+    )
+
+    assert updater.resolve_certificate_dir(updater.domains) == (
+        tmp_path / "example.com" / "precision"
+    ).resolve()
+
+
 def test_certificate_layout_suffixes_conflicting_scope(tmp_path):
     _write_test_certificate(
         tmp_path / "example.com" / "default" / "fullchain.pem",

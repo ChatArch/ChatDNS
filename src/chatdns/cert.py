@@ -207,6 +207,14 @@ class SSLCertUpdater:
         except (OSError, ValueError, x509.ExtensionNotFound):
             return None
 
+    def _matches_cert_path_name(self, name: str) -> bool:
+        if self.cert_path is None:
+            return True
+        return bool(
+            name == self.cert_path
+            or re.fullmatch(rf"{re.escape(self.cert_path)}-(?:[2-9]|[1-9][0-9]+)", name)
+        )
+
     def find_certificate_dir(self, domains: List[str]) -> Optional[Path]:
         """Find an existing two-level certificate that covers the requested names."""
         expected_sans = {
@@ -228,10 +236,7 @@ class SSLCertUpdater:
             ):
                 if not directory.is_dir():
                     continue
-                if self.cert_path is not None and not (
-                    directory.name == self.cert_path
-                    or directory.name.startswith(f"{self.cert_path}-")
-                ):
+                if not self._matches_cert_path_name(directory.name):
                     continue
                 try:
                     resolved_directory = directory.resolve()
@@ -276,10 +281,12 @@ class SSLCertUpdater:
         zone_dir = self._path_in_cert_dir(zone)
         expected_sans = set(normalized_domains)
 
-        if self.cert_path is None and zone_dir.is_dir():
+        if zone_dir.is_dir():
             matches = []
             for child in sorted(zone_dir.iterdir(), key=lambda item: item.name):
                 if not child.is_dir():
+                    continue
+                if not self._matches_cert_path_name(child.name):
                     continue
                 try:
                     resolved_child = child.resolve()
