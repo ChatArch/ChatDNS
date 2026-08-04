@@ -126,7 +126,7 @@ $CHATARCH_HOME/private/chatdns/acme/
 
 ## Infra manifest、status 与 scripts
 
-当前 `0.1.7` 中，`chatdns cert manifest` 只是只读展示接口：
+`chatdns cert manifest show` 是只读展示接口；兼容旧写法 `chatdns cert manifest [PATH]`：
 
 ```bash
 cd Infra
@@ -136,15 +136,15 @@ chatdns cert manifest ./manifest.json
 
 空文件、空对象和空 `certificates` 容器都会显示为空表。当前命令兼容 `certificate_groups`、`certificates` 和 `groups` 三种顶层集合，并显示 ID、注册域名、证书路径、SAN、部署数量与状态。
 
-需求对齐后的职责应拆成三层：
+当前职责拆成三层：
 
-| 需求 | 预期 CLI | 写入位置 |
+| 需求 | CLI | 写入位置 |
 | --- | --- | --- |
 | 查看当前内部证书状态 | `chatdns cert status [DOMAINS]...` | 只读扫描证书根 |
 | 创建/补齐证书信息清单 | `chatdns cert manifest init ./manifest.json --from-store` | Infra 工作区 `manifest.json`，不写入 live cert root |
-| 生成常见服务器同步脚本 | `chatdns cert script render TEMPLATE --manifest ./manifest.json --output ./scripts` | Infra 工作区 `scripts/`，默认只写脚本不执行 |
+| 给同步脚本预留手写入口 | `chatdns cert manifest init ... --scripts-dir ./scripts` | 只创建 `scripts/README.md`，不生成脚本逻辑 |
 
-`manifest.json` 和 `scripts/` 是 Infra 编排资产，不是 live cert root 的一部分。live root 仍然只保留两层证书目录和每个 leaf 的四个 PEM 文件。`status` 可以读取 live root；`manifest init` 把读到的 leaf/SAN/expiry/deployment metadata 写入 manifest；`script render` 再根据 manifest 生成 SSH+Nginx、只同步不 reload、容器 Nginx reload 等常见同步脚本模板。
+`manifest.json` 和 `scripts/` 是 Infra 编排资产，不是 live cert root 的一部分。live root 仍然只保留两层证书目录和每个 leaf 的四个 PEM 文件。`status` 可以读取 live root；`manifest init` 把读到的 leaf/SAN/expiry/status 写入 manifest，并创建 `scripts/README.md` 说明同步脚本必须由模型或操作者按实际服务器手写。ChatDNS 不提供 `cert script` 生成或执行接口。
 
 ## 远端 Infra 路径
 

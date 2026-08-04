@@ -8,10 +8,11 @@
 
 ```text
 chatdns
-├── cert                # DNS-01 证书申请、检查和 Infra manifest 展示
+├── cert                # DNS-01 证书申请、状态盘点和 Infra manifest 脚手架
 │   ├── apply           # 申请或续期证书；写 DNS TXT 和本地证书文件
-│   ├── check           # 检查本地证书到期时间和续期状态
-│   └── manifest        # 只读展示独立 Infra manifest
+│   ├── check           # 检查指定域名的到期时间和续期状态
+│   ├── status          # 扫描内部证书根并输出 leaf 状态
+│   └── manifest        # show/init/validate Infra manifest；init 只写本地清单/README
 ├── ddns                # 单次更新或持续监控动态 IP；可能写 DNS 记录
 ├── delete              # 按域名、主机记录、类型和值筛选并删除 DNS 记录
 ├── ip                  # 只探测公网或本地 IP，不修改 DNS
@@ -35,8 +36,9 @@ chatdns
 | --- | --- | --- |
 | 只读 | `list`、`records` | 调用 provider 查询 API，不写 DNS |
 | 只读 | `ip` | 公网模式访问 IP 探测服务；本地模式只扫描本机网卡 |
-| 只读 | `cert check` | 读取本地证书并计算续期状态，不执行 ACME |
-| 只读 | `cert manifest` | 读取指定 JSON manifest 并渲染表格，不修改原文件 |
+| 只读 | `cert check`、`cert status` | 读取本地证书并计算续期/库存状态，不执行 ACME |
+| 只读 | `cert manifest show`、`cert manifest validate` | 读取指定 JSON manifest 并展示或校验，不修改原文件 |
+| 本地文件写入 | `cert manifest init` | 扫描证书根并写 Infra 工作区 `manifest.json` 与 `scripts/README.md`，不写 live cert root |
 | 写 DNS | `set`、`delete`、`ddns` | 创建、更新或删除 provider 记录 |
 | 写 DNS 与证书 | `cert apply` | 写 `_acme-challenge` TXT，执行 ACME，并安装本地 PEM |
 
@@ -146,8 +148,27 @@ chatdns cert check [DOMAINS]...
 ├── --cert-path NAME
 └── --provider aliyun|tencent
 
-chatdns cert manifest [MANIFEST_PATH]
+chatdns cert status [DOMAINS]...
+├── --cert-dir DIR
+├── --cert-path NAME
+├── --expiring-within DAYS       # 默认 30
+├── --format table|json          # 默认 table
+└── --strict                     # selected leaf 非 valid 时非零退出
+
+chatdns cert manifest [MANIFEST_PATH]    # 兼容入口，等同 show
+chatdns cert manifest show [MANIFEST_PATH]
 └── MANIFEST_PATH                # 默认 ./manifest.json，只读
+
+chatdns cert manifest init [MANIFEST_PATH]
+├── --cert-dir DIR               # 扫描证书根；默认 CHATDNS_CERT_DIR 或 $CHATARCH_HOME/certs
+├── --cert-path NAME             # 可选限定 leaf 名称/后缀族
+├── --from-store                 # 显式说明来源为本地证书根
+├── --scripts-dir DIR            # 默认 manifest 同级 scripts/；只创建 README.md
+├── --force                      # 覆盖已有 manifest
+└── --format table|json          # 默认 table，输出创建回执
+
+chatdns cert manifest validate [MANIFEST_PATH]
+└── MANIFEST_PATH                # 校验 manifest 形状与本地证书文件引用
 ```
 
 证书根目录优先级为：显式 `--cert-dir`，其次是 ChatEnv `CHATDNS_CERT_DIR`，最后是 `$CHATARCH_HOME/certs`。正式 leaf 位于：
@@ -180,46 +201,18 @@ chatdns --env work cert apply \
 chatdns cert check '*.example.com' --cert-path default
 ```
 
-`cert manifest` 不扫描证书根，也不部署证书；它只把独立 Infra manifest 渲染为表格。SSH 同步、Nginx 路径更新、`nginx -t`、reload 和 rollback 属于 Infra，而不是 ChatDNS。
+`cert status` 是回答“当前内部证书是什么情况”的主入口。`cert manifest init` 从证书根生成 Infra 工作区里的 `manifest.json`，并创建同级 `scripts/README.md` 说明手写脚本边界；它不把 manifest 写进 live cert root，也不会生成或执行服务器同步脚本。
 
-### 证书运维缺口与预期接口
-
-当前 `0.1.7` 的公开 help 只有 `cert apply`、`cert check` 和 `cert manifest`：
-
-- `cert check` 必须先给出域名，只回答这些域名是否有本地证书、是否需要续期；它不能全量扫描内部证书根。
-- `cert manifest [PATH]` 只是只读 renderer；它读取已有 JSON 并渲染表格，不会创建 `manifest.json`。
-- ChatDNS 当前不会创建 `scripts/`，也不会生成常见服务器的证书同步脚本。
-
-需求对齐后的下一版证书运维接口应是下面这棵树。实现前不要把这些条目当成已发布命令；实现时应保留旧的 `chatdns cert manifest [PATH]` 作为 `manifest show` 的兼容入口。
+### Manifest 与脚本边界
 
 ```text
-chatdns cert
-├── status [DOMAINS]...          # 扫描证书根并输出当前内部证书状态；无域名时默认全量
-│   ├── --cert-dir DIR           # 显式证书根
-│   ├── --cert-path NAME         # 限定注册域名下的 leaf 名称/后缀族
-│   ├── --expiring-within DAYS   # 临期阈值；默认 30
-│   ├── --format table|json      # 人读表格或自动化 JSON
-│   └── --strict                 # 缺文件、证书损坏、临期或 SAN 不匹配时非零退出
-├── check [DOMAINS]...           # 兼容已有目标域名续期检查
-├── manifest
-│   ├── show [MANIFEST_PATH]     # 只读展示 manifest；兼容旧 cert manifest [PATH]
-│   ├── init [MANIFEST_PATH]     # 从当前证书根生成/补齐 manifest.json
-│   │   ├── --cert-dir DIR
-│   │   ├── --from-store         # 扫描 <cert-root>/<registered-domain>/<cert-path>/
-│   │   ├── --force              # 覆盖已有 manifest 前必须显式确认
-│   │   └── --format json
-│   └── validate [MANIFEST_PATH] # 校验 manifest 字段、证书路径和 SAN 覆盖
-└── script
-    ├── list                     # 列出内置同步脚本模板
-    ├── render TEMPLATE          # 基于 manifest 渲染 scripts/ 下的同步脚本；只写文件不执行
-    │   ├── --manifest MANIFEST_PATH
-    │   ├── --output SCRIPTS_DIR # 默认 ./scripts
-    │   ├── --server NAME        # 限定 manifest 中的一个或多个部署目标
-    │   └── --force
-    └── validate SCRIPTS_DIR     # 静态检查脚本引用的 leaf、远端路径和 reload 命令
+Infra workspace
+├── manifest.json          # chatdns cert manifest init 生成/覆盖
+└── scripts/
+    └── README.md          # ChatDNS 创建说明；具体同步脚本由模型/人按实际服务器手写
 ```
 
-`status` 是回答“当前内部证书是什么情况”的主入口。`manifest init` 应创建 Infra 工作区里的 `manifest.json`，记录证书 leaf、SAN、到期时间、部署目标和状态；它不应把 manifest 写进 live cert root。`script render` 应生成几个常用同步脚本模板，例如 SSH+Nginx 原子同步、只同步不 reload、容器内 Nginx reload 等，但默认只生成脚本，不直接执行远端变更。
+ChatDNS 不提供 `chatdns cert script ...` 命令。SSH 同步、Nginx 路径更新、`nginx -t`、reload 和 rollback 属于 Infra 现场操作，不固化进 ChatDNS。模型或操作者应读取 `manifest.json` 后，根据目标服务器的 SSH 入口、目录、supervisor/process manager、回滚策略和验证命令手写脚本。
 
 ## Profile 与交互规则
 

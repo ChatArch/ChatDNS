@@ -2,7 +2,12 @@
 
 ## Unreleased
 
-- Document the planned certificate-operations CLI contract for internal certificate `status`, manifest creation, and sync-script generation.
+## 0.1.8 - 2026-08-05
+
+- Add `chatdns cert status` to scan the internal certificate store and report leaf status as a table or JSON.
+- Add `chatdns cert manifest show/init/validate`; keep legacy `chatdns cert manifest [PATH]` as a `show` shorthand.
+- Make `manifest init` create/update an Infra `manifest.json` plus a `scripts/README.md` manual-edit scaffold, without generating or executing server sync scripts.
+- Document the manifest/script boundary in README and the bilingual CLI/certificate-storage pages.
 
 ## 0.1.7 - 2026-08-05
 

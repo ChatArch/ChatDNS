@@ -14,7 +14,7 @@ import re
 import subprocess
 import tempfile
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Optional, Union
 from pathlib import Path
 
@@ -84,6 +84,211 @@ def split_pem_chain(pem: str) -> tuple[str, str]:
     leaf_cert = certs[0].rstrip() + "\n"
     chain_cert = "".join(cert.rstrip() + "\n" for cert in certs[1:])
     return leaf_cert, chain_cert
+
+CERT_STORE_MANIFEST_SCHEMA = "chatdns.certificate-manifest.v1"
+CERT_STORE_REQUIRED_FILES = ("cert.pem", "chain.pem", "fullchain.pem", "privkey.pem")
+
+
+def _certificate_datetime(certificate, attr: str) -> datetime:
+    value = getattr(certificate, f"{attr}_utc", None)
+    if value is None:
+        value = getattr(certificate, attr)
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _load_leaf_certificate(directory: Path):
+    """Load the leaf certificate from a stored certificate directory."""
+    from cryptography import x509
+
+    cert_file = directory / "fullchain.pem"
+    if not cert_file.is_file():
+        cert_file = directory / "cert.pem"
+    leaf_pem, _ = split_pem_chain(cert_file.read_text(encoding="utf-8"))
+    return x509.load_pem_x509_certificate(leaf_pem.encode("utf-8"))
+
+
+def inspect_certificate_store(
+    cert_dir: str | Path,
+    domains: List[str] | None = None,
+    *,
+    cert_path: str | None = None,
+    expiring_within_days: int = CERT_RENEWAL_DAYS,
+) -> list[dict]:
+    """Return read-only status records for a ChatDNS two-level certificate store."""
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.x509.oid import ExtensionOID
+
+    root = Path(cert_dir).expanduser().resolve()
+    requested = {normalize_certificate_domain(domain) for domain in (domains or [])}
+    selected_cert_path = normalize_cert_path(cert_path) if cert_path else None
+    now = datetime.now(timezone.utc)
+    entries: list[dict] = []
+
+    def cert_path_matches(name: str) -> bool:
+        if selected_cert_path is None:
+            return True
+        return bool(
+            name == selected_cert_path
+            or re.fullmatch(rf"{re.escape(selected_cert_path)}-(?:[2-9]|[1-9][0-9]+)", name)
+        )
+
+    if root.is_dir():
+        for zone_dir in sorted(root.iterdir(), key=lambda item: item.name):
+            if not zone_dir.is_dir() or zone_dir.is_symlink():
+                continue
+            try:
+                resolved_zone_dir = zone_dir.resolve()
+                resolved_zone_dir.relative_to(root)
+            except (OSError, ValueError):
+                continue
+            for leaf_dir in sorted(resolved_zone_dir.iterdir(), key=lambda item: item.name):
+                if not leaf_dir.is_dir() or leaf_dir.is_symlink():
+                    continue
+                if not cert_path_matches(leaf_dir.name):
+                    continue
+                try:
+                    resolved_leaf_dir = leaf_dir.resolve()
+                    resolved_leaf_dir.relative_to(root)
+                except (OSError, ValueError):
+                    continue
+
+                files: dict[str, dict] = {}
+                missing_files: list[str] = []
+                for filename in CERT_STORE_REQUIRED_FILES:
+                    file_path = resolved_leaf_dir / filename
+                    file_info = {"path": str(file_path), "exists": file_path.is_file()}
+                    if file_path.exists():
+                        try:
+                            file_info["mode"] = oct(file_path.stat().st_mode & 0o777)
+                        except OSError:
+                            file_info["mode"] = None
+                    if not file_path.is_file():
+                        missing_files.append(filename)
+                    files[filename] = file_info
+
+                entry = {
+                    "id": f"{zone_dir.name}/{leaf_dir.name}",
+                    "registered_domain": zone_dir.name,
+                    "cert_path": leaf_dir.name,
+                    "local_dir": f"{zone_dir.name}/{leaf_dir.name}",
+                    "path": str(resolved_leaf_dir),
+                    "files": files,
+                    "missing_files": missing_files,
+                    "domains": [],
+                    "status": "missing_files" if missing_files else "unknown",
+                }
+
+                if not missing_files:
+                    try:
+                        certificate = _load_leaf_certificate(resolved_leaf_dir)
+                        try:
+                            extension = certificate.extensions.get_extension_for_oid(
+                                ExtensionOID.SUBJECT_ALTERNATIVE_NAME
+                            ).value
+                            names = extension.get_values_for_type(x509.DNSName)
+                        except x509.ExtensionNotFound:
+                            names = []
+                        domains_list = [normalize_certificate_domain(name) for name in names]
+                        not_before = _certificate_datetime(certificate, "not_valid_before")
+                        not_after = _certificate_datetime(certificate, "not_valid_after")
+                        seconds_remaining = (not_after - now).total_seconds()
+                        days_remaining = int(seconds_remaining // 86400)
+                        if not_after <= now:
+                            status = "expired"
+                        elif days_remaining <= expiring_within_days:
+                            status = "expiring"
+                        else:
+                            status = "valid"
+                        entry.update(
+                            {
+                                "domains": domains_list,
+                                "not_before": not_before.isoformat().replace("+00:00", "Z"),
+                                "not_after": not_after.isoformat().replace("+00:00", "Z"),
+                                "days_remaining": days_remaining,
+                                "subject": certificate.subject.rfc4514_string(),
+                                "issuer": certificate.issuer.rfc4514_string(),
+                                "serial_number": format(certificate.serial_number, "x"),
+                                "fingerprint_sha256": certificate.fingerprint(hashes.SHA256()).hex(),
+                                "status": status,
+                            }
+                        )
+                    except Exception as exc:  # noqa: BLE001 - status command must inspect broken leaves
+                        entry.update({"status": "invalid", "error": str(exc)})
+
+                if requested and not (requested & set(entry.get("domains") or [])):
+                    continue
+                entries.append(entry)
+
+    covered = set().union(*(set(entry.get("domains") or []) for entry in entries)) if entries else set()
+    for domain in sorted(requested - covered):
+        entries.append(
+            {
+                "id": domain,
+                "registered_domain": "-",
+                "cert_path": "-",
+                "local_dir": "-",
+                "path": None,
+                "files": {},
+                "missing_files": list(CERT_STORE_REQUIRED_FILES),
+                "domains": [domain],
+                "status": "missing",
+            }
+        )
+    return entries
+
+
+def build_certificate_manifest(
+    cert_dir: str | Path,
+    *,
+    domains: List[str] | None = None,
+    cert_path: str | None = None,
+    expiring_within_days: int = CERT_RENEWAL_DAYS,
+    scripts_dir: str | Path | None = None,
+) -> dict:
+    """Build an Infra manifest from the current certificate store without remote effects."""
+    root = Path(cert_dir).expanduser().resolve()
+    records = inspect_certificate_store(
+        root,
+        domains,
+        cert_path=cert_path,
+        expiring_within_days=expiring_within_days,
+    )
+    manifest = {
+        "schema": CERT_STORE_MANIFEST_SCHEMA,
+        "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "cert_root": str(root),
+        "certificates": records,
+        "deployment_targets": [],
+        "script_policy": {
+            "mode": "manual",
+            "description": "ChatDNS creates manifest and README scaffolding only; models or operators write server-specific sync scripts manually.",
+        },
+    }
+    if scripts_dir is not None:
+        manifest["scripts_dir"] = str(Path(scripts_dir).expanduser())
+    return manifest
+
+
+def certificate_manifest_readme(manifest_name: str = "manifest.json") -> str:
+    """Return the README content for manually authored certificate sync scripts."""
+    return f"""# Certificate sync scripts
+
+This directory is intentionally manual/model-authored.
+
+ChatDNS creates `{manifest_name}` and this README so operators have a stable place to write deployment scripts. It does **not** generate server-specific synchronization logic and it does **not** execute remote commands.
+
+Recommended workflow:
+
+1. Read `{manifest_name}` for certificate leaf paths, SANs, expiry, and status.
+2. Write a script for the actual target server and process manager.
+3. Keep secrets out of scripts; use the server's approved SSH/profile/secret storage.
+4. Test copy/reload steps against the real host before automating them.
+
+The live certificate root should still contain only certificate leaves such as `<registered-domain>/<cert-path>/{{cert.pem,chain.pem,fullchain.pem,privkey.pem}}`.
+"""
 
 
 class SSLCertUpdater:
