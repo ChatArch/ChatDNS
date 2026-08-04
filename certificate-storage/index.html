@@ -1,0 +1,814 @@
+
+<!doctype html>
+<html lang="zh" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="DNS, DDNS, and ACME DNS-01 tooling for ChatArch">
+      
+      
+      
+        <link rel="canonical" href="https://arch.gh.wzhecnu.cn/ChatDNS/certificate-storage/">
+      
+      
+        <link rel="prev" href="../cli-tree/">
+      
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.23">
+    
+    
+      
+        <title>证书目录与创建规则 - ChatDNS 文档</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.84d31ad4.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#_1" class="md-skip">
+          跳转至
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="页眉">
+    <a href=".." title="ChatDNS 文档" class="md-header__button md-logo" aria-label="ChatDNS 文档" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ChatDNS 文档
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              证书目录与创建规则
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+      <div class="md-header__option">
+  <div class="md-select">
+    
+    <button class="md-header__button md-icon" aria-label="选择当前语言">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2zm-2.62 7 1.62-4.33L19.12 17z"/></svg>
+    </button>
+    <div class="md-select__inner">
+      <ul class="md-select__list">
+        
+          <li class="md-select__item">
+            <a href="./" hreflang="zh" class="md-select__link">
+              简体中文
+            </a>
+          </li>
+        
+          <li class="md-select__item">
+            <a href="../en/certificate-storage/" hreflang="en" class="md-select__link">
+              English
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</div>
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="搜索" placeholder="搜索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="查找">
+        
+        <button type="reset" class="md-search__icon md-icon" title="清空当前内容" aria-label="清空当前内容" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            正在初始化搜索引擎
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ChatArch/ChatDNS" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ChatArch/ChatDNS
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="导航栏" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="ChatDNS 文档" class="md-nav__button md-logo" aria-label="ChatDNS 文档" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    ChatDNS 文档
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ChatArch/ChatDNS" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ChatArch/ChatDNS
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ChatDNS
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ChatDNS 快速开始
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli-tree/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ChatDNS CLI 树
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    证书目录与创建规则
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    证书目录与创建规则
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目录">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目录
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      目录选择优先级
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#chatenv" class="md-nav__link">
+    <span class="md-ellipsis">
+      用 ChatEnv 管理
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      两层证书目录
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      默认名、冲突和续期复用
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#acme" class="md-nav__link">
+    <span class="md-ellipsis">
+      文件职责、权限和 ACME 私有状态
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#san" class="md-nav__link">
+    <span class="md-ellipsis">
+      SAN 分组和续期判断
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#infra-manifeststatus-scripts" class="md-nav__link">
+    <span class="md-ellipsis">
+      Infra manifest、status 与 scripts
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#infra" class="md-nav__link">
+    <span class="md-ellipsis">
+      远端 Infra 路径
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      安全检查
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="目录">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目录
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      目录选择优先级
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#chatenv" class="md-nav__link">
+    <span class="md-ellipsis">
+      用 ChatEnv 管理
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      两层证书目录
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      默认名、冲突和续期复用
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#acme" class="md-nav__link">
+    <span class="md-ellipsis">
+      文件职责、权限和 ACME 私有状态
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#san" class="md-nav__link">
+    <span class="md-ellipsis">
+      SAN 分组和续期判断
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#infra-manifeststatus-scripts" class="md-nav__link">
+    <span class="md-ellipsis">
+      Infra manifest、status 与 scripts
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#infra" class="md-nav__link">
+    <span class="md-ellipsis">
+      远端 Infra 路径
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      安全检查
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="_1">证书目录与创建规则</h1>
+<p>ChatDNS 使用 DNS-01 申请证书，并将证书和私钥写入一个明确的证书根目录。本页说明目录如何选择、首次申请会创建哪些文件、泛域/SAN 证书如何分组，以及 ChatArch 中央证书库与远端 Infra 如何使用同一套相对路径。</p>
+<h2 id="_2">目录选择优先级</h2>
+<p>证书根目录按以下顺序解析，前者覆盖后者：</p>
+<ol>
+<li>CLI <code>--cert-dir</code> 或 Python <code>SSLCertUpdater(cert_dir=...)</code>；</li>
+<li>ChatEnv 的 <code>CHATDNS_CERT_DIR</code>；</li>
+<li><code>$CHATARCH_HOME/certs</code>。</li>
+</ol>
+<p><code>CHATARCH_HOME</code> 本身按以下顺序确定：</p>
+<ol>
+<li>CLI <code>--chatarch-home</code> 或 Python <code>chatarch_home=</code>；</li>
+<li>环境变量 <code>CHATARCH_HOME</code>；</li>
+<li><code>~/.chatarch</code>。</li>
+</ol>
+<p>如果 <code>CHATDNS_CERT_DIR</code> 中引用 <code>$CHATARCH_HOME</code>，ChatDNS 使用本次命令的有效 ChatArch home 展开它，而不是进程环境中可能残留的其他 home。</p>
+<h2 id="chatenv">用 ChatEnv 管理</h2>
+<p><code>CHATDNS_CERT_DIR</code> 是非敏感目录变量，可写入 active 或 named ChatDNS profile：</p>
+<div class="highlight"><pre><span></span><code>chatenv<span class="w"> </span>init<span class="w"> </span>-t<span class="w"> </span>chatdns<span class="w"> </span>-I
+chatenv<span class="w"> </span><span class="nb">set</span><span class="w"> </span><span class="s1">&#39;CHATDNS_CERT_DIR=$CHATARCH_HOME/certs&#39;</span><span class="w"> </span>-I
+chatenv<span class="w"> </span>cat<span class="w"> </span>-t<span class="w"> </span>ChatDNS
+</code></pre></div>
+<p>把当前值保存为 named profile：</p>
+<div class="highlight"><pre><span></span><code>chatenv<span class="w"> </span>save<span class="w"> </span>-t<span class="w"> </span>ChatDNS<span class="w"> </span>work<span class="w"> </span>-I
+chatdns<span class="w"> </span>--chatarch-home<span class="w"> </span>/srv/chatarch<span class="w"> </span>--env<span class="w"> </span>work<span class="w"> </span>cert<span class="w"> </span>check<span class="w"> </span>example.com
+</code></pre></div>
+<p>显式参数始终最高优先级：</p>
+<div class="highlight"><pre><span></span><code>chatdns<span class="w"> </span>cert<span class="w"> </span>check<span class="w"> </span>example.com<span class="w"> </span>--cert-dir<span class="w"> </span>/tmp/cert-audit
+</code></pre></div>
+<h2 id="_3">两层证书目录</h2>
+<p>ChatDNS 固定使用：</p>
+<div class="highlight"><pre><span></span><code>$CHATARCH_HOME/certs/&lt;注册域名&gt;/&lt;cert-path&gt;/
+</code></pre></div>
+<p>这里的“注册域名”是 provider 中与请求名称最长匹配的托管 zone。申请根泛域证书时：</p>
+<div class="highlight"><pre><span></span><code>chatdns<span class="w"> </span>cert<span class="w"> </span>apply<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;*.example.com&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-e<span class="w"> </span>admin@example.com<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--provider<span class="w"> </span>aliyun
+</code></pre></div>
+<p>未指定 <code>--cert-path</code>，默认结果为：</p>
+<div class="highlight"><pre><span></span><code>$CHATARCH_HOME/certs/
+├── README.md                 # 可选；证书根唯一的说明文件
+└── example.com/
+    └── default/
+        ├── cert.pem
+        ├── chain.pem
+        ├── fullchain.pem
+        └── privkey.pem
+</code></pre></div>
+<p>申请更深一层的泛域证书时，建议显式使用 URI 对应名称：</p>
+<div class="highlight"><pre><span></span><code>chatdns<span class="w"> </span>cert<span class="w"> </span>apply<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;*.precision.example.com&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-e<span class="w"> </span>admin@example.com<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--provider<span class="w"> </span>aliyun<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--cert-path<span class="w"> </span>precision
+</code></pre></div>
+<p>结果是 <code>$CHATARCH_HOME/certs/example.com/precision/</code>。<code>--cert-path</code> 必须是一个安全目录段，不能是绝对路径，不能包含 <code>/</code>、<code>\</code>、<code>.</code>、<code>..</code> 或路径穿越。ChatDNS 可以显示从泛域名推导的建议，但不会静默替换显式名称或默认行为。</p>
+<h2 id="_4">默认名、冲突和续期复用</h2>
+<ul>
+<li>未指定 <code>--cert-path</code> 时先选择 <code>default</code>。</li>
+<li>如果该目录已属于不同 SAN 集，依次选择 <code>default-2</code>、<code>default-3</code>。</li>
+<li>显式名称冲突时同样使用 <code>&lt;name&gt;-2</code>、<code>&lt;name&gt;-3</code>。</li>
+<li>可能与自动编号重叠的显式名称属于同一个锁定范围，例如 <code>foo</code> 和 <code>foo-2</code> 不会并发分配同一目录。</li>
+<li>如果两层目录中已经存在完全相同的标准化 SAN 集，续期复用原目录，不产生新编号。</li>
+<li><code>chatdns cert check</code> 可用 <code>--cert-path</code> 精确限定名称；未限定时会在两层目录中查找覆盖请求域名的证书。</li>
+</ul>
+<p>一个泛域只覆盖一层：<code>*.example.com</code> 覆盖 <code>nas.example.com</code>，不覆盖 <code>foo.precision.example.com</code>；后一类名称需要 <code>*.precision.example.com</code>。</p>
+<h2 id="acme">文件职责、权限和 ACME 私有状态</h2>
+<p>每个末级证书目录只允许四个 PEM：</p>
+<table>
+<thead>
+<tr>
+<th>文件/目录</th>
+<th>用途</th>
+<th style="text-align: right;">权限</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>证书根目录</td>
+<td>注册域名目录和可选 <code>README.md</code></td>
+<td style="text-align: right;"><code>0700</code></td>
+</tr>
+<tr>
+<td>证书末级目录</td>
+<td>一张证书的四个部署文件</td>
+<td style="text-align: right;"><code>0700</code></td>
+</tr>
+<tr>
+<td><code>privkey.pem</code></td>
+<td>证书私钥</td>
+<td style="text-align: right;"><code>0600</code></td>
+</tr>
+<tr>
+<td><code>cert.pem</code></td>
+<td>叶子证书</td>
+<td style="text-align: right;"><code>0644</code></td>
+</tr>
+<tr>
+<td><code>chain.pem</code></td>
+<td>中间证书链</td>
+<td style="text-align: right;"><code>0644</code></td>
+</tr>
+<tr>
+<td><code>fullchain.pem</code></td>
+<td>叶子证书加中间链</td>
+<td style="text-align: right;"><code>0644</code></td>
+</tr>
+</tbody>
+</table>
+<p>ACME account key、签发临时目录和临时 key 不进入 <code>certs/</code>。默认私有状态目录为：</p>
+<div class="highlight"><pre><span></span><code>$CHATARCH_HOME/private/chatdns/acme/
+</code></pre></div>
+<p>新证书私钥先在内存中生成；签发返回后，ChatDNS 在私有状态目录中完成拆链和证书/私钥匹配验证，再把四个 PEM 写入目标目录。不要把证书根或 ACME 私有状态提交到 Git，也不要输出私钥内容。</p>
+<h2 id="san">SAN 分组和续期判断</h2>
+<p>同一 provider 托管 zone 的输入名称作为一张 SAN 证书处理。一次目录解析只接受同一个托管 zone；CLI 收到多个 zone 时会先分组，再分别预览和签发。续期时：</p>
+<ol>
+<li>定位完整 SAN 集对应的现有两层目录；</li>
+<li>检查证书是否存在及是否在 30 天内到期；</li>
+<li>检查 SAN 是否覆盖全部请求名称；</li>
+<li>仅在缺失、临期、SAN 不完整或显式 <code>--force</code> 时申请。</li>
+</ol>
+<h2 id="infra-manifeststatus-scripts">Infra manifest、status 与 scripts</h2>
+<p><code>chatdns cert manifest show</code> 是只读展示接口；兼容旧写法 <code>chatdns cert manifest [PATH]</code>：</p>
+<div class="highlight"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>Infra
+chatdns<span class="w"> </span>cert<span class="w"> </span>manifest
+chatdns<span class="w"> </span>cert<span class="w"> </span>manifest<span class="w"> </span>./manifest.json
+</code></pre></div>
+<p>空文件、空对象和空 <code>certificates</code> 容器都会显示为空表。当前命令兼容 <code>certificate_groups</code>、<code>certificates</code> 和 <code>groups</code> 三种顶层集合，并显示 ID、注册域名、证书路径、SAN、部署数量与状态。</p>
+<p>当前职责拆成三层：</p>
+<table>
+<thead>
+<tr>
+<th>需求</th>
+<th>CLI</th>
+<th>写入位置</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>查看当前内部证书状态</td>
+<td><code>chatdns cert status [DOMAINS]...</code></td>
+<td>只读扫描证书根</td>
+</tr>
+<tr>
+<td>创建/补齐证书信息清单</td>
+<td><code>chatdns cert manifest init ./manifest.json --from-store</code></td>
+<td>Infra 工作区 <code>manifest.json</code>，不写入 live cert root</td>
+</tr>
+<tr>
+<td>给同步脚本预留手写入口</td>
+<td><code>chatdns cert manifest init ... --scripts-dir ./scripts</code></td>
+<td>只创建 <code>scripts/README.md</code>，不生成脚本逻辑</td>
+</tr>
+</tbody>
+</table>
+<p><code>manifest.json</code> 和 <code>scripts/</code> 是 Infra 编排资产，不是 live cert root 的一部分。live root 仍然只保留两层证书目录和每个 leaf 的四个 PEM 文件。<code>status</code> 可以读取 live root；<code>manifest init</code> 把读到的 leaf/SAN/expiry/status 写入 manifest，并创建 <code>scripts/README.md</code> 说明同步脚本必须由模型或操作者按实际服务器手写。ChatDNS 不提供 <code>cert script</code> 生成或执行接口。</p>
+<h2 id="infra">远端 Infra 路径</h2>
+<p>远端保持同一相对路径：</p>
+<div class="highlight"><pre><span></span><code>&lt;remote-home&gt;/.chatarch/certs/&lt;注册域名&gt;/&lt;cert-path&gt;/
+</code></pre></div>
+<p>Nginx 指向其中的 <code>fullchain.pem</code> 和 <code>privkey.pem</code>。具体同步/更新脚本由模型根据实际服务器手写，不固化进 ChatDNS。远端变更必须先备份证书和配置，完成原子安装、配置测试、reload、失败回滚，并按 SNI 回读线上证书。</p>
+<h2 id="_5">安全检查</h2>
+<p>生产申请前建议先运行 <code>--staging</code>。正式申请后至少验证：</p>
+<ul>
+<li>目标路径严格是两层目录；</li>
+<li>托管域目录不是 symlink，证书 leaf 也不会通过 symlink 解析；</li>
+<li>末级目录只有四个 PEM；</li>
+<li>SAN 完整覆盖预期域名；</li>
+<li><code>cert.pem</code> 与 <code>privkey.pem</code> 公钥匹配；</li>
+<li><code>_acme-challenge</code> 临时 TXT 已清理；</li>
+<li>私钥权限为 <code>0600</code>；</li>
+<li>远端 <code>nginx -t</code> 和线上 SNI 证书回读均通过。</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  回到页面顶部
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "\u5df2\u590d\u5236", "clipboard.copy": "\u590d\u5236", "search.result.more.one": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.other": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 # \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.term.missing": "\u7f3a\u5c11", "select.version": "\u9009\u62e9\u5f53\u524d\u7248\u672c"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      
+    
+  </body>
+</html>

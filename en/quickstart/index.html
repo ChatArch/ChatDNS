@@ -1,0 +1,887 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="DNS, DDNS, and ACME DNS-01 tooling for ChatArch">
+      
+      
+      
+        <link rel="canonical" href="https://arch.gh.wzhecnu.cn/ChatDNS/en/quickstart/">
+      
+      
+        <link rel="prev" href="../">
+      
+      
+        <link rel="next" href="../cli-tree/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.23">
+    
+    
+      
+        <title>ChatDNS Quick Start - ChatDNS Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.84d31ad4.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#chatdns-quick-start" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../" title="ChatDNS Documentation" class="md-header__button md-logo" aria-label="ChatDNS Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ChatDNS Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ChatDNS Quick Start
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+      <div class="md-header__option">
+  <div class="md-select">
+    
+    <button class="md-header__button md-icon" aria-label="Select language">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2zm-2.62 7 1.62-4.33L19.12 17z"/></svg>
+    </button>
+    <div class="md-select__inner">
+      <ul class="md-select__list">
+        
+          <li class="md-select__item">
+            <a href="../../quickstart/" hreflang="zh" class="md-select__link">
+              简体中文
+            </a>
+          </li>
+        
+          <li class="md-select__item">
+            <a href="./" hreflang="en" class="md-select__link">
+              English
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</div>
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ChatArch/ChatDNS" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ChatArch/ChatDNS
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../" title="ChatDNS Documentation" class="md-nav__button md-logo" aria-label="ChatDNS Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    ChatDNS Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ChatArch/ChatDNS" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ChatArch/ChatDNS
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ChatDNS
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    ChatDNS Quick Start
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    ChatDNS Quick Start
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-install-and-verify" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Install and Verify
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-select-a-provider-and-chatenv-profile" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Select a Provider and ChatEnv Profile
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Select a Provider and ChatEnv Profile">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#create-a-tencent-named-profile" class="md-nav__link">
+    <span class="md-ellipsis">
+      Create a Tencent Named Profile
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-an-aliyun-named-profile" class="md-nav__link">
+    <span class="md-ellipsis">
+      Create an Aliyun Named Profile
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#set-a-default-provider" class="md-nav__link">
+    <span class="md-ellipsis">
+      Set a Default Provider
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-begin-with-read-only-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Begin with Read-Only Checks
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-create-read-back-and-delete-a-record" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Create, Read Back, and Delete a Record
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-ddns-one-shot-before-monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. DDNS: One Shot Before Monitoring
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-certificates-check-staging-production" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Certificates: Check, Staging, Production
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-render-a-separate-infra-manifest" class="md-nav__link">
+    <span class="md-ellipsis">
+      7. Render a Separate Infra Manifest
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      Next Steps
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli-tree/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ChatDNS CLI Tree
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../certificate-storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Certificate Storage And Creation Rules
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-install-and-verify" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Install and Verify
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-select-a-provider-and-chatenv-profile" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Select a Provider and ChatEnv Profile
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Select a Provider and ChatEnv Profile">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#create-a-tencent-named-profile" class="md-nav__link">
+    <span class="md-ellipsis">
+      Create a Tencent Named Profile
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-an-aliyun-named-profile" class="md-nav__link">
+    <span class="md-ellipsis">
+      Create an Aliyun Named Profile
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#set-a-default-provider" class="md-nav__link">
+    <span class="md-ellipsis">
+      Set a Default Provider
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-begin-with-read-only-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Begin with Read-Only Checks
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-create-read-back-and-delete-a-record" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Create, Read Back, and Delete a Record
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-ddns-one-shot-before-monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. DDNS: One Shot Before Monitoring
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-certificates-check-staging-production" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Certificates: Check, Staging, Production
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-render-a-separate-infra-manifest" class="md-nav__link">
+    <span class="md-ellipsis">
+      7. Render a Separate Infra Manifest
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      Next Steps
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="chatdns-quick-start">ChatDNS Quick Start</h1>
+<p>This guide follows a safe sequence: install, configure a profile, run read-only checks, change DNS, then issue certificates. Stop after the read-only checks on a first use. Continue only after confirming the account, provider, and target zone.</p>
+<div class="grid cards">
+<ul>
+<li><strong>Inspect Before Mutation</strong></li>
+</ul>
+<hr />
+<p>Start with <code>list</code>, <code>records</code>, <code>ip</code>, and <code>cert check</code>.</p>
+<ul>
+<li><strong>Record Lifecycle</strong></li>
+</ul>
+<hr />
+<p>Write with <code>set</code>, read back with <code>records</code>, and delete with an exact filter.</p>
+<ul>
+<li><strong>Dynamic Addresses</strong></li>
+</ul>
+<hr />
+<p><code>ddns</code> runs once by default. Add <code>--monitor</code> only after verification.</p>
+<ul>
+<li><strong>Safe Certificate Path</strong></li>
+</ul>
+<hr />
+<p>Use a separate staging output root; only production leaves enter the central store.</p>
+</div>
+<h2 id="1-install-and-verify">1. Install and Verify</h2>
+<p><strong>Python 3.12</strong> is recommended. <code>requires-python &gt;=3.10</code> only declares the minimum compatibility floor.</p>
+<p>Install the stable package:</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-U<span class="w"> </span>ChatDNS
+chatdns<span class="w"> </span>--version
+chatdns<span class="w"> </span>--help
+</code></pre></div>
+<p>Install the optional MCP integration when needed:</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-U<span class="w"> </span><span class="s1">&#39;ChatDNS[mcp]&#39;</span>
+</code></pre></div>
+<p>For source development:</p>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/ChatArch/ChatDNS.git
+<span class="nb">cd</span><span class="w"> </span>ChatDNS
+python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">&#39;.[dev,docs]&#39;</span>
+python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>-q
+mkdocs<span class="w"> </span>build<span class="w"> </span>--strict
+</code></pre></div>
+<h2 id="2-select-a-provider-and-chatenv-profile">2. Select a Provider and ChatEnv Profile</h2>
+<p>Current providers:</p>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>CLI value</th>
+<th>ChatEnv type</th>
+<th>Required credentials</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Alibaba Cloud DNS</td>
+<td><code>aliyun</code></td>
+<td><code>aliyun</code></td>
+<td><code>ALIBABA_CLOUD_ACCESS_KEY_ID</code>, <code>ALIBABA_CLOUD_ACCESS_KEY_SECRET</code></td>
+</tr>
+<tr>
+<td>Tencent Cloud DNSPod</td>
+<td><code>tencent</code></td>
+<td><code>tencent</code></td>
+<td><code>TENCENT_SECRET_ID</code>, <code>TENCENT_SECRET_KEY</code></td>
+</tr>
+</tbody>
+</table>
+<p>Inspect which packages own the registered schemas:</p>
+<div class="highlight"><pre><span></span><code>chatenv<span class="w"> </span>status<span class="w"> </span>-t<span class="w"> </span>chatdns<span class="w"> </span>--detail
+chatenv<span class="w"> </span>status<span class="w"> </span>-t<span class="w"> </span>aliyun<span class="w"> </span>--detail
+chatenv<span class="w"> </span>status<span class="w"> </span>-t<span class="w"> </span>tencent<span class="w"> </span>--detail
+</code></pre></div>
+<h3 id="create-a-tencent-named-profile">Create a Tencent Named Profile</h3>
+<p>This example creates a profile named <code>work</code>. Replace placeholders with real values, but never commit credentials to a repository, documentation, or logs.</p>
+<div class="highlight"><pre><span></span><code>chatenv<span class="w"> </span>new<span class="w"> </span>-t<span class="w"> </span>tencent<span class="w"> </span>-I<span class="w"> </span>--yes<span class="w"> </span>work
+<span class="nb">printf</span><span class="w"> </span><span class="s1">&#39;%s\n&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s1">&#39;TENCENT_SECRET_ID=[REDACTED]&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s1">&#39;TENCENT_SECRET_KEY=[REDACTED]&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s1">&#39;TENCENT_REGION_ID=ap-guangzhou&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="p">|</span><span class="w"> </span>chatenv<span class="w"> </span>paste<span class="w"> </span>--profile<span class="w"> </span>work<span class="w"> </span>--stdin<span class="w"> </span>--yes<span class="w"> </span>-I
+chatenv<span class="w"> </span>cat<span class="w"> </span>-t<span class="w"> </span>tencent<span class="w"> </span>work
+</code></pre></div>
+<h3 id="create-an-aliyun-named-profile">Create an Aliyun Named Profile</h3>
+<div class="highlight"><pre><span></span><code>chatenv<span class="w"> </span>new<span class="w"> </span>-t<span class="w"> </span>aliyun<span class="w"> </span>-I<span class="w"> </span>--yes<span class="w"> </span>work
+<span class="nb">printf</span><span class="w"> </span><span class="s1">&#39;%s\n&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s1">&#39;ALIBABA_CLOUD_ACCESS_KEY_ID=[REDACTED]&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s1">&#39;ALIBABA_CLOUD_ACCESS_KEY_SECRET=[REDACTED]&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s1">&#39;ALIBABA_CLOUD_REGION_ID=cn-hangzhou&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="p">|</span><span class="w"> </span>chatenv<span class="w"> </span>paste<span class="w"> </span>--profile<span class="w"> </span>work<span class="w"> </span>--stdin<span class="w"> </span>--yes<span class="w"> </span>-I
+chatenv<span class="w"> </span>cat<span class="w"> </span>-t<span class="w"> </span>aliyun<span class="w"> </span>work
+</code></pre></div>
+<p><code>chatenv cat</code> masks sensitive fields by default. Public examples and routine checks should not use <code>--no-mask</code>.</p>
+<h3 id="set-a-default-provider">Set a Default Provider</h3>
+<p>To avoid repeating <code>--provider</code>, initialize the active ChatDNS configuration and set a default:</p>
+<div class="highlight"><pre><span></span><code>chatenv<span class="w"> </span>init<span class="w"> </span>-t<span class="w"> </span>chatdns<span class="w"> </span>-I
+chatenv<span class="w"> </span><span class="nb">set</span><span class="w"> </span>-I<span class="w"> </span><span class="nv">CHATDNS_PROVIDER</span><span class="o">=</span>tencent
+chatenv<span class="w"> </span>cat<span class="w"> </span>-t<span class="w"> </span>chatdns
+</code></pre></div>
+<p>An explicit command <code>--provider</code> always overrides <code>CHATDNS_PROVIDER</code>. Keep <code>--env work</code> when selecting named provider credentials.</p>
+<h2 id="3-begin-with-read-only-checks">3. Begin with Read-Only Checks</h2>
+<p>Using the Tencent <code>work</code> profile:</p>
+<div class="highlight"><pre><span></span><code>chatdns<span class="w"> </span>--env<span class="w"> </span>work<span class="w"> </span>list<span class="w"> </span>--provider<span class="w"> </span>tencent
+chatdns<span class="w"> </span>--env<span class="w"> </span>work<span class="w"> </span>records<span class="w"> </span>example.com<span class="w"> </span>--provider<span class="w"> </span>tencent<span class="w"> </span>-I
+chatdns<span class="w"> </span>--env<span class="w"> </span>work<span class="w"> </span>records<span class="w"> </span>www.example.com<span class="w"> </span>--type<span class="w"> </span>A<span class="w"> </span>--provider<span class="w"> </span>tencent<span class="w"> </span>-I
+</code></pre></div>
+<p>Inspect current IP addresses:</p>
+<div class="highlight"><pre><span></span><code>chatdns<span class="w"> </span>ip<span class="w"> </span>--type<span class="w"> </span>public
+chatdns<span class="w"> </span>ip<span class="w"> </span>--type<span class="w"> </span><span class="nb">local</span><span class="w"> </span>--local-ip-cidr<span class="w"> </span><span class="m">192</span>.168.0.0/16
+</code></pre></div>
+<p>Read-only commands may still access provider APIs or public IP services, but they do not modify DNS records.</p>
+<h2 id="4-create-read-back-and-delete-a-record">4. Create, Read Back, and Delete a Record</h2>
+<p>Use documentation-only address <code>192.0.2.10</code> for the lifecycle example:</p>
+<div class="highlight"><pre><span></span><code>chatdns<span class="w"> </span>--env<span class="w"> </span>work<span class="w"> </span><span class="nb">set</span><span class="w"> </span>host.example.com<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--provider<span class="w"> </span>tencent<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--type<span class="w"> </span>A<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--value<span class="w"> </span><span class="m">192</span>.0.2.10<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--ttl<span class="w"> </span><span class="m">600</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-I
+
+chatdns<span class="w"> </span>--env<span class="w"> </span>work<span class="w"> </span>records<span class="w"> </span>host.example.com<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--provider<span class="w"> </span>tencent<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--type<span class="w"> </span>A<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-I
+</code></pre></div>
+<p>After confirming the target and value, delete the exact match:</p>
+<div class="highlight"><pre><span></span><code>chatdns<span class="w"> </span>--env<span class="w"> </span>work<span class="w"> </span>delete<span class="w"> </span>host.example.com<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--provider<span class="w"> </span>tencent<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--type<span class="w"> </span>A<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--value<span class="w"> </span><span class="m">192</span>.0.2.10<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--yes<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-I
+</code></pre></div>
+<p>Safety rules:</p>
+<ul>
+<li>read back every <code>set</code> with <code>records</code>;</li>
+<li>give <code>delete</code> both <code>--type</code> and <code>--value</code> whenever possible;</li>
+<li>use <code>-I</code> in automation to prevent missing-input prompts;</li>
+<li>require explicit <code>--yes</code> for non-interactive deletion.</li>
+</ul>
+<h2 id="5-ddns-one-shot-before-monitoring">5. DDNS: One Shot Before Monitoring</h2>
+<p>Run one update:</p>
+<div class="highlight"><pre><span></span><code>chatdns<span class="w"> </span>--env<span class="w"> </span>work<span class="w"> </span>ddns<span class="w"> </span>home.example.com<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--provider<span class="w"> </span>tencent<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--ip-type<span class="w"> </span>public<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--ttl<span class="w"> </span><span class="m">600</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-I
+</code></pre></div>
+<p>Read it back, then start monitoring only if the result is correct:</p>
+<div class="highlight"><pre><span></span><code>chatdns<span class="w"> </span>--env<span class="w"> </span>work<span class="w"> </span>records<span class="w"> </span>home.example.com<span class="w"> </span>--provider<span class="w"> </span>tencent<span class="w"> </span>-I
+chatdns<span class="w"> </span>--env<span class="w"> </span>work<span class="w"> </span>ddns<span class="w"> </span>home.example.com<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--provider<span class="w"> </span>tencent<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--ip-type<span class="w"> </span>public<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--monitor<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--interval<span class="w"> </span><span class="m">120</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--log-file<span class="w"> </span>dynamic_ip_updater.log<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-I
+</code></pre></div>
+<p><code>--monitor</code> is a long-running foreground mode. Service installation, process supervision, and restart policy are outside the current ChatDNS CLI tree.</p>
+<h2 id="6-certificates-check-staging-production">6. Certificates: Check, Staging, Production</h2>
+<p>First inspect local state:</p>
+<div class="highlight"><pre><span></span><code>chatdns<span class="w"> </span>cert<span class="w"> </span>check<span class="w"> </span><span class="s1">&#39;*.example.com&#39;</span><span class="w"> </span>--cert-path<span class="w"> </span>default
+</code></pre></div>
+<p>Validate staging with a separate output root so the production central store stays clean:</p>
+<div class="highlight"><pre><span></span><code>chatdns<span class="w"> </span>--env<span class="w"> </span>work<span class="w"> </span>cert<span class="w"> </span>apply<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--domain<span class="w"> </span><span class="s1">&#39;*.example.com&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--email<span class="w"> </span>admin@example.com<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--provider<span class="w"> </span>tencent<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--staging<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--cert-dir<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/.cache/chatdns/staging-certs&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--cert-path<span class="w"> </span>default<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-I
+</code></pre></div>
+<p>After validating provider credentials, DNS-01, and ACME, issue the production certificate:</p>
+<div class="highlight"><pre><span></span><code>chatdns<span class="w"> </span>--env<span class="w"> </span>work<span class="w"> </span>cert<span class="w"> </span>apply<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--domain<span class="w"> </span><span class="s1">&#39;*.example.com&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--email<span class="w"> </span>admin@example.com<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--provider<span class="w"> </span>tencent<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--cert-path<span class="w"> </span>default<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-I
+
+chatdns<span class="w"> </span>cert<span class="w"> </span>check<span class="w"> </span><span class="s1">&#39;*.example.com&#39;</span><span class="w"> </span>--cert-path<span class="w"> </span>default
+</code></pre></div>
+<p>Production certificates default to:</p>
+<div class="highlight"><pre><span></span><code>$CHATARCH_HOME/certs/&lt;registered-domain&gt;/&lt;cert-path&gt;/
+</code></pre></div>
+<p>Each leaf contains only four PEM files. See <a href="../certificate-storage/">Certificate Storage and Creation Rules</a> for allocation, reuse, SAN, wildcard, symlink, and remote deployment contracts.</p>
+<h2 id="7-render-a-separate-infra-manifest">7. Render a Separate Infra Manifest</h2>
+<p><code>cert manifest</code> reads JSON and renders a table:</p>
+<div class="highlight"><pre><span></span><code>chatdns<span class="w"> </span>cert<span class="w"> </span>manifest<span class="w"> </span>./manifest.json
+</code></pre></div>
+<p>It does not scan the central store or deploy certificates over SSH. Server inventory, backup, path changes, <code>nginx -t</code>, reload, SNI readback, and rollback belong to Infra.</p>
+<h2 id="next-steps">Next Steps</h2>
+<ul>
+<li>Browse every command, option, and side effect: <a href="../cli-tree/">CLI Tree</a></li>
+<li>Understand certificate storage and creation: <a href="../certificate-storage/">Certificate Storage and Creation Rules</a></li>
+<li>Return to the documentation hub: <a href="../">Home</a></li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      
+    
+  </body>
+</html>

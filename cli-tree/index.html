@@ -1,0 +1,950 @@
+
+<!doctype html>
+<html lang="zh" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="DNS, DDNS, and ACME DNS-01 tooling for ChatArch">
+      
+      
+      
+        <link rel="canonical" href="https://arch.gh.wzhecnu.cn/ChatDNS/cli-tree/">
+      
+      
+        <link rel="prev" href="../quickstart/">
+      
+      
+        <link rel="next" href="../certificate-storage/">
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.23">
+    
+    
+      
+        <title>ChatDNS CLI 树 - ChatDNS 文档</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.84d31ad4.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#chatdns-cli" class="md-skip">
+          跳转至
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="页眉">
+    <a href=".." title="ChatDNS 文档" class="md-header__button md-logo" aria-label="ChatDNS 文档" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ChatDNS 文档
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ChatDNS CLI 树
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+      <div class="md-header__option">
+  <div class="md-select">
+    
+    <button class="md-header__button md-icon" aria-label="选择当前语言">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2zm-2.62 7 1.62-4.33L19.12 17z"/></svg>
+    </button>
+    <div class="md-select__inner">
+      <ul class="md-select__list">
+        
+          <li class="md-select__item">
+            <a href="./" hreflang="zh" class="md-select__link">
+              简体中文
+            </a>
+          </li>
+        
+          <li class="md-select__item">
+            <a href="../en/cli-tree/" hreflang="en" class="md-select__link">
+              English
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</div>
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="搜索" placeholder="搜索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="查找">
+        
+        <button type="reset" class="md-search__icon md-icon" title="清空当前内容" aria-label="清空当前内容" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            正在初始化搜索引擎
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ChatArch/ChatDNS" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ChatArch/ChatDNS
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="导航栏" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="ChatDNS 文档" class="md-nav__button md-logo" aria-label="ChatDNS 文档" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    ChatDNS 文档
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ChatArch/ChatDNS" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ChatArch/ChatDNS
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ChatDNS
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ChatDNS 快速开始
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    ChatDNS CLI 树
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    ChatDNS CLI 树
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目录">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目录
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      顶层命令
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      副作用分级
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      域名与记录查询
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dns-ddns" class="md-nav__link">
+    <span class="md-ellipsis">
+      DNS 写入与 DDNS
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      证书命令
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="证书命令">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#manifest" class="md-nav__link">
+    <span class="md-ellipsis">
+      Manifest 与脚本边界
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#profile" class="md-nav__link">
+    <span class="md-ellipsis">
+      Profile 与交互规则
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#python-api-mcp" class="md-nav__link">
+    <span class="md-ellipsis">
+      Python API 与 MCP 边界
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      文档更新契约
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../certificate-storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    证书目录与创建规则
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="目录">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目录
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      顶层命令
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      副作用分级
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      域名与记录查询
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dns-ddns" class="md-nav__link">
+    <span class="md-ellipsis">
+      DNS 写入与 DDNS
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      证书命令
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="证书命令">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#manifest" class="md-nav__link">
+    <span class="md-ellipsis">
+      Manifest 与脚本边界
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#profile" class="md-nav__link">
+    <span class="md-ellipsis">
+      Profile 与交互规则
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#python-api-mcp" class="md-nav__link">
+    <span class="md-ellipsis">
+      Python API 与 MCP 边界
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      文档更新契约
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="chatdns-cli">ChatDNS CLI 树</h1>
+<p>这是一份以当前 <code>chatdns --help</code>、各级子命令 help、源码和测试为准的命令地图。它回答两个问题：命令如何调用，以及调用后是否会产生外部副作用。</p>
+<p>需要先完成 provider profile 配置时，从<a href="../quickstart/">快速开始</a>进入；证书文件布局和远端部署边界见<a href="../certificate-storage/">证书目录与创建规则</a>。</p>
+<h2 id="_1">顶层命令</h2>
+<div class="highlight"><pre><span></span><code>chatdns
+├── cert                # DNS-01 证书申请、状态盘点和 Infra manifest 脚手架
+│   ├── apply           # 申请或续期证书；写 DNS TXT 和本地证书文件
+│   ├── check           # 检查指定域名的到期时间和续期状态
+│   ├── status          # 扫描内部证书根并输出 leaf 状态
+│   └── manifest        # show/init/validate Infra manifest；init 只写本地清单/README
+├── ddns                # 单次更新或持续监控动态 IP；可能写 DNS 记录
+├── delete              # 按域名、主机记录、类型和值筛选并删除 DNS 记录
+├── ip                  # 只探测公网或本地 IP，不修改 DNS
+├── list                # 列出 provider 账号中的托管域
+├── records             # 查询域名或完整主机名的 DNS 记录
+└── set                 # 幂等创建或更新 DNS 记录
+</code></pre></div>
+<p>顶层公共选项：</p>
+<table>
+<thead>
+<tr>
+<th>选项</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--version</code></td>
+<td>输出 ChatDNS 版本</td>
+</tr>
+<tr>
+<td><code>-e, --env PROFILE</code></td>
+<td>在命令前选择 provider 的 named ChatEnv profile</td>
+</tr>
+<tr>
+<td><code>--chatarch-home DIR</code></td>
+<td>为本次命令覆盖读取 ChatEnv profile 时使用的 <code>CHATARCH_HOME</code></td>
+</tr>
+<tr>
+<td><code>--help</code></td>
+<td>输出顶层帮助</td>
+</tr>
+</tbody>
+</table>
+<h2 id="_2">副作用分级</h2>
+<table>
+<thead>
+<tr>
+<th>分级</th>
+<th>命令</th>
+<th>边界</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>只读</td>
+<td><code>list</code>、<code>records</code></td>
+<td>调用 provider 查询 API，不写 DNS</td>
+</tr>
+<tr>
+<td>只读</td>
+<td><code>ip</code></td>
+<td>公网模式访问 IP 探测服务；本地模式只扫描本机网卡</td>
+</tr>
+<tr>
+<td>只读</td>
+<td><code>cert check</code>、<code>cert status</code></td>
+<td>读取本地证书并计算续期/库存状态，不执行 ACME</td>
+</tr>
+<tr>
+<td>只读</td>
+<td><code>cert manifest show</code>、<code>cert manifest validate</code></td>
+<td>读取指定 JSON manifest 并展示或校验，不修改原文件</td>
+</tr>
+<tr>
+<td>本地文件写入</td>
+<td><code>cert manifest init</code></td>
+<td>扫描证书根并写 Infra 工作区 <code>manifest.json</code> 与 <code>scripts/README.md</code>，不写 live cert root</td>
+</tr>
+<tr>
+<td>写 DNS</td>
+<td><code>set</code>、<code>delete</code>、<code>ddns</code></td>
+<td>创建、更新或删除 provider 记录</td>
+</tr>
+<tr>
+<td>写 DNS 与证书</td>
+<td><code>cert apply</code></td>
+<td>写 <code>_acme-challenge</code> TXT，执行 ACME，并安装本地 PEM</td>
+</tr>
+</tbody>
+</table>
+<p>“只读”只表示不修改 DNS/证书状态，不表示完全离线：<code>list</code>、<code>records</code> 和公网 <code>ip</code> 仍会访问网络。</p>
+<h2 id="_3">域名与记录查询</h2>
+<div class="highlight"><pre><span></span><code>chatdns list
+├── --provider aliyun|tencent    # 显式 provider；否则读 CHATDNS_PROVIDER
+├── --page INTEGER               # 默认 1
+├── --page-size INTEGER          # 默认 20
+└── --env PROFILE                # 命令级 named provider profile
+
+chatdns records [TARGET]
+├── --domain DOMAIN              # 与 --rr 组合的替代输入
+├── --rr RR                      # 可选主机记录过滤
+├── --type TYPE                  # 可选记录类型过滤
+├── --provider aliyun|tencent
+├── --env PROFILE
+└── -i | -I                      # 强制交互或禁用交互
+
+chatdns ip
+├── --type public|local          # 默认 public
+└── --local-ip-cidr CIDR         # 只在 local 模式过滤候选网卡地址
+</code></pre></div>
+<p><code>records</code> 的 <code>TARGET</code> 可以是托管域 <code>example.com</code>，也可以是完整主机名 <code>www.example.com</code>。如果同时给出位置参数和 <code>--domain/--rr</code>，位置参数优先，CLI 会输出忽略提示。</p>
+<p><code>list</code> 默认只请求第一页（<code>--page 1 --page-size 20</code>）。做完整 zone 盘点时，显式提高 <code>--page-size</code>（Aliyun/Tencent 常用 100）并按 <code>--page</code> 继续分页，直到返回不足一页或 provider 计数核对完成。</p>
+<p>常用只读命令：</p>
+<div class="highlight"><pre><span></span><code>chatdns<span class="w"> </span>--env<span class="w"> </span>work<span class="w"> </span>list<span class="w"> </span>--provider<span class="w"> </span>tencent
+chatdns<span class="w"> </span>--env<span class="w"> </span>work<span class="w"> </span>records<span class="w"> </span>example.com<span class="w"> </span>--provider<span class="w"> </span>tencent<span class="w"> </span>-I
+chatdns<span class="w"> </span>--env<span class="w"> </span>work<span class="w"> </span>records<span class="w"> </span>www.example.com<span class="w"> </span>--type<span class="w"> </span>A<span class="w"> </span>--provider<span class="w"> </span>tencent<span class="w"> </span>-I
+chatdns<span class="w"> </span>ip<span class="w"> </span>--type<span class="w"> </span><span class="nb">local</span><span class="w"> </span>--local-ip-cidr<span class="w"> </span><span class="m">192</span>.168.0.0/16
+</code></pre></div>
+<h2 id="dns-ddns">DNS 写入与 DDNS</h2>
+<div class="highlight"><pre><span></span><code>chatdns set [FULL_DOMAIN]
+├── --domain DOMAIN + --rr RR    # FULL_DOMAIN 的替代输入
+├── --type TYPE                  # 默认 A
+├── --value VALUE                # 必填，可由交互补齐
+├── --ttl INTEGER                # 默认 600
+├── --provider aliyun|tencent
+├── --env PROFILE
+└── -i | -I
+
+chatdns delete [FULL_DOMAIN]
+├── --domain DOMAIN + --rr RR
+├── --type TYPE                  # 必填，可由交互补齐
+├── --value VALUE                # 可选，进一步收窄匹配记录
+├── --yes                        # 非交互删除必须显式确认
+├── --provider aliyun|tencent
+├── --env PROFILE
+└── -i | -I
+
+chatdns ddns [FULL_DOMAIN]
+├── --domain DOMAIN + --rr RR
+├── --ttl INTEGER                # 默认 600
+├── --ip-type public|local       # 默认 public
+├── --local-ip-cidr CIDR
+├── --monitor                    # 不传时只执行一次
+├── --interval SECONDS           # 监控间隔，默认 120
+├── --max-retries INTEGER        # 默认 3
+├── --retry-delay SECONDS        # 默认 5
+├── --log-file PATH
+├── --log-level LEVEL            # 默认 INFO
+├── --provider aliyun|tencent
+├── --env PROFILE
+└── -i | -I
+</code></pre></div>
+<p><code>set</code> 调用 provider 的幂等设置路径；执行后仍应使用 <code>records</code> 回读。<code>delete</code> 会先列出匹配记录；非交互环境必须传 <code>--yes</code>，否则失败关闭。<code>ddns</code> 默认只运行一次，只有显式 <code>--monitor</code> 才持续轮询。</p>
+<div class="highlight"><pre><span></span><code>chatdns<span class="w"> </span>--env<span class="w"> </span>work<span class="w"> </span><span class="nb">set</span><span class="w"> </span>host.example.com<span class="w"> </span>-p<span class="w"> </span>tencent<span class="w"> </span>-t<span class="w"> </span>A<span class="w"> </span>-v<span class="w"> </span><span class="m">192</span>.0.2.10<span class="w"> </span>-I
+chatdns<span class="w"> </span>--env<span class="w"> </span>work<span class="w"> </span>records<span class="w"> </span>host.example.com<span class="w"> </span>-p<span class="w"> </span>tencent<span class="w"> </span>-t<span class="w"> </span>A<span class="w"> </span>-I
+chatdns<span class="w"> </span>--env<span class="w"> </span>work<span class="w"> </span>delete<span class="w"> </span>host.example.com<span class="w"> </span>-p<span class="w"> </span>tencent<span class="w"> </span>-t<span class="w"> </span>A<span class="w"> </span>-v<span class="w"> </span><span class="m">192</span>.0.2.10<span class="w"> </span>--yes<span class="w"> </span>-I
+
+chatdns<span class="w"> </span>--env<span class="w"> </span>work<span class="w"> </span>ddns<span class="w"> </span>host.example.com<span class="w"> </span>-p<span class="w"> </span>tencent<span class="w"> </span>-I
+chatdns<span class="w"> </span>--env<span class="w"> </span>work<span class="w"> </span>ddns<span class="w"> </span>host.example.com<span class="w"> </span>-p<span class="w"> </span>tencent<span class="w"> </span>--monitor<span class="w"> </span>--interval<span class="w"> </span><span class="m">120</span><span class="w"> </span>-I
+</code></pre></div>
+<h2 id="_4">证书命令</h2>
+<div class="highlight"><pre><span></span><code>chatdns cert apply
+├── --domain DOMAIN              # 可重复；支持 SAN / wildcard
+├── --email EMAIL                # Let&#39;s Encrypt 账号邮箱；短选项为 -e
+├── --provider aliyun|tencent
+├── --env PROFILE                # 此处只提供长选项，避免与 -e 邮箱冲突
+├── --cert-dir DIR               # 显式证书根目录
+├── --cert-path NAME             # 注册域名下的安全单段目录名
+├── --staging                    # 使用 Let&#39;s Encrypt staging
+├── --force                      # 忽略本地仍有效状态，强制申请/续期
+├── --log-file PATH
+├── --log-level LEVEL            # 默认 INFO
+└── -i | -I
+
+chatdns cert check [DOMAINS]...
+├── --cert-dir DIR
+├── --cert-path NAME
+└── --provider aliyun|tencent
+
+chatdns cert status [DOMAINS]...
+├── --cert-dir DIR
+├── --cert-path NAME
+├── --expiring-within DAYS       # 默认 30
+├── --format table|json          # 默认 table
+└── --strict                     # selected leaf 非 valid 时非零退出
+
+chatdns cert manifest [MANIFEST_PATH]    # 兼容入口，等同 show
+chatdns cert manifest show [MANIFEST_PATH]
+└── MANIFEST_PATH                # 默认 ./manifest.json，只读
+
+chatdns cert manifest init [MANIFEST_PATH]
+├── --cert-dir DIR               # 扫描证书根；默认 CHATDNS_CERT_DIR 或 $CHATARCH_HOME/certs
+├── --cert-path NAME             # 可选限定 leaf 名称/后缀族
+├── --from-store                 # 显式说明来源为本地证书根
+├── --scripts-dir DIR            # 默认 manifest 同级 scripts/；只创建 README.md
+├── --force                      # 覆盖已有 manifest
+└── --format table|json          # 默认 table，输出创建回执
+
+chatdns cert manifest validate [MANIFEST_PATH]
+└── MANIFEST_PATH                # 校验 manifest 形状与本地证书文件引用
+</code></pre></div>
+<p>证书根目录优先级为：显式 <code>--cert-dir</code>，其次是 ChatEnv <code>CHATDNS_CERT_DIR</code>，最后是 <code>$CHATARCH_HOME/certs</code>。正式 leaf 位于：</p>
+<div class="highlight"><pre><span></span><code>&lt;certificate-root&gt;/&lt;registered-domain&gt;/&lt;cert-path&gt;/
+</code></pre></div>
+<p>省略 <code>--cert-path</code> 时从 <code>default</code> 开始；冲突时选择 <code>default-2</code>、<code>default-3</code>，完整规范化 SAN 集相同则复用已有 leaf。每个 leaf 只允许 <code>cert.pem</code>、<code>chain.pem</code>、<code>fullchain.pem</code> 和 <code>privkey.pem</code>。</p>
+<p><code>cert apply</code> 是高副作用命令。先用单独的 staging 输出目录验证 provider、DNS-01 和 ACME，再执行生产申请；不要让 Nginx 或其他服务引用 staging 证书。</p>
+<div class="highlight"><pre><span></span><code>chatdns<span class="w"> </span>--env<span class="w"> </span>work<span class="w"> </span>cert<span class="w"> </span>apply<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;*.example.com&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-e<span class="w"> </span>admin@example.com<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-p<span class="w"> </span>tencent<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--staging<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--cert-dir<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/.cache/chatdns/staging-certs&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--cert-path<span class="w"> </span>default<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-I
+
+chatdns<span class="w"> </span>--env<span class="w"> </span>work<span class="w"> </span>cert<span class="w"> </span>apply<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;*.example.com&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-e<span class="w"> </span>admin@example.com<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-p<span class="w"> </span>tencent<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--cert-path<span class="w"> </span>default<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-I
+
+chatdns<span class="w"> </span>cert<span class="w"> </span>check<span class="w"> </span><span class="s1">&#39;*.example.com&#39;</span><span class="w"> </span>--cert-path<span class="w"> </span>default
+</code></pre></div>
+<p><code>cert status</code> 是回答“当前内部证书是什么情况”的主入口。<code>cert manifest init</code> 从证书根生成 Infra 工作区里的 <code>manifest.json</code>，并创建同级 <code>scripts/README.md</code> 说明手写脚本边界；它不把 manifest 写进 live cert root，也不会生成或执行服务器同步脚本。</p>
+<h3 id="manifest">Manifest 与脚本边界</h3>
+<div class="highlight"><pre><span></span><code>Infra workspace
+├── manifest.json          # chatdns cert manifest init 生成/覆盖
+└── scripts/
+    └── README.md          # ChatDNS 创建说明；具体同步脚本由模型/人按实际服务器手写
+</code></pre></div>
+<p>ChatDNS 不提供 <code>chatdns cert script ...</code> 命令。SSH 同步、Nginx 路径更新、<code>nginx -t</code>、reload 和 rollback 属于 Infra 现场操作，不固化进 ChatDNS。模型或操作者应读取 <code>manifest.json</code> 后，根据目标服务器的 SSH 入口、目录、supervisor/process manager、回滚策略和验证命令手写脚本。</p>
+<h2 id="profile">Profile 与交互规则</h2>
+<p>Provider 选择顺序：</p>
+<ol>
+<li>命令显式 <code>--provider</code>；</li>
+<li>ChatEnv <code>CHATDNS_PROVIDER</code>；</li>
+<li>默认 <code>aliyun</code>。</li>
+</ol>
+<p>Provider 凭据来自对应的 Aliyun 或 Tencent named/active ChatEnv profile。可在顶层选择 profile：</p>
+<div class="highlight"><pre><span></span><code>chatdns<span class="w"> </span>--env<span class="w"> </span>work<span class="w"> </span>list<span class="w"> </span>-p<span class="w"> </span>tencent
+</code></pre></div>
+<p><code>list</code>、<code>ddns</code>、<code>set</code>、<code>records</code> 和 <code>delete</code> 也接受命令级 <code>--env/-e</code>，且命令级值覆盖顶层值。<code>cert apply</code> 的 <code>-e</code> 是邮箱，因此 named profile 必须写成长选项 <code>--env</code>，或放在 <code>cert</code> 前面的顶层位置。</p>
+<p>带 <code>-i/-I</code> 的命令遵循 ChatStyle 交互契约：<code>-i</code> 强制在可用终端补问缺失参数，<code>-I</code> 禁止交互并快速失败。自动化建议显式传全参数和 <code>-I</code>。</p>
+<h2 id="python-api-mcp">Python API 与 MCP 边界</h2>
+<p>CLI 不是唯一接口。包根导出的主要 Python API 包括：</p>
+<div class="highlight"><pre><span></span><code>chatdns
+├── DNSClient
+├── AliyunDNSClient
+├── TencentDNSClient
+├── DynamicIPUpdater
+├── SSLCertUpdater
+├── DNSClientType
+├── create_dns_client
+└── split_full_domain
+</code></pre></div>
+<p>安装 <code>ChatDNS[mcp]</code> 后，<code>chatdns.mcp.register(mcp)</code> 注册以下工具：</p>
+<table>
+<thead>
+<tr>
+<th>MCP 工具</th>
+<th>类型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dns_list_domains</code></td>
+<td>读</td>
+</tr>
+<tr>
+<td><code>dns_get_records</code></td>
+<td>读</td>
+</tr>
+<tr>
+<td><code>dns_add_record</code></td>
+<td>写</td>
+</tr>
+<tr>
+<td><code>dns_delete_record</code></td>
+<td>写</td>
+</tr>
+<tr>
+<td><code>dns_ddns_update</code></td>
+<td>写</td>
+</tr>
+</tbody>
+</table>
+<p>MCP 工具不属于 <code>chatdns</code> CLI 子树。CLI 中刻意隐藏的 Certbot hook 也是内部兼容面，不作为稳定用户命令记录在本树中。</p>
+<h2 id="_5">文档更新契约</h2>
+<ul>
+<li>只有已出现在实际 Click help 中的公共命令才能进入本树。</li>
+<li>新命令必须同步更新中英文页面、顶层副作用表和相关快速开始。</li>
+<li>隐藏命令、规划能力和远端 Infra 流程不能伪装为稳定 CLI。</li>
+<li>命令选项以 <code>chatdns &lt;path&gt; --help</code> 和测试为最终依据。</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  回到页面顶部
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "\u5df2\u590d\u5236", "clipboard.copy": "\u590d\u5236", "search.result.more.one": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.other": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 # \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.term.missing": "\u7f3a\u5c11", "select.version": "\u9009\u62e9\u5f53\u524d\u7248\u672c"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      
+    
+  </body>
+</html>
