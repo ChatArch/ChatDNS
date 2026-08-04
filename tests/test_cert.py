@@ -996,6 +996,74 @@ def test_cert_status_scans_internal_store_without_dns_client(tmp_path):
     assert payload["certificates"][0]["local_dir"] == "example.com/default"
 
 
+def test_cert_status_output_does_not_leak_private_key_contents(tmp_path):
+    cert_root = tmp_path / "certs"
+    leaf = cert_root / "example.com" / "default"
+    _write_complete_certificate_leaf(leaf, ["example.com", "*.example.com"])
+    begin_marker = "-----BEGIN " + "PRIVATE KEY-----"
+    end_marker = "-----END " + "PRIVATE KEY-----"
+    private_key_contents = (
+        f"{begin_marker}\n"
+        "top-secret-test-key-material\n"
+        f"{end_marker}\n"
+    )
+    (leaf / "privkey.pem").write_text(private_key_contents, encoding="utf-8")
+
+    table_result = CliRunner().invoke(
+        main, ["cert", "status", "--cert-dir", str(cert_root)], catch_exceptions=False
+    )
+    json_result = CliRunner().invoke(
+        main,
+        ["cert", "status", "--cert-dir", str(cert_root), "--format", "json"],
+        catch_exceptions=False,
+    )
+
+    for result in (table_result, json_result):
+        assert result.exit_code == 0, result.output
+        assert "top-secret-test-key-material" not in result.output
+        assert begin_marker not in result.output
+        assert end_marker not in result.output
+    assert "privkey.pem" in json_result.output
+
+
+def test_cert_status_skips_symlinked_zones_and_leaves(tmp_path):
+    cert_root = tmp_path / "certs"
+    _write_complete_certificate_leaf(
+        cert_root / "example.com" / "default",
+        ["example.com", "*.example.com"],
+    )
+
+    external_zone = tmp_path / "external-zone"
+    _write_complete_certificate_leaf(
+        external_zone / "default",
+        ["evil.example.com"],
+    )
+    (cert_root / "evil.example.com").symlink_to(
+        external_zone, target_is_directory=True
+    )
+
+    external_leaf = tmp_path / "external-leaf"
+    _write_complete_certificate_leaf(external_leaf, ["linked.example.com"])
+    symlink_zone = cert_root / "linked.example.com"
+    symlink_zone.mkdir(parents=True)
+    (symlink_zone / "default").symlink_to(external_leaf, target_is_directory=True)
+
+    result = CliRunner().invoke(
+        main,
+        ["cert", "status", "--cert-dir", str(cert_root), "--format", "json"],
+        catch_exceptions=False,
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert [entry["local_dir"] for entry in payload["certificates"]] == [
+        "example.com/default"
+    ]
+    output = json.dumps(payload, ensure_ascii=False)
+    assert "evil.example.com" not in output
+    assert "linked.example.com" not in output
+
+
 def test_cert_status_strict_fails_for_missing_requested_domain(tmp_path):
     result = CliRunner().invoke(
         main,
