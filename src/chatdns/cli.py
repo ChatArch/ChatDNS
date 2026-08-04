@@ -378,6 +378,53 @@ def _print_certificate_manifest(groups, source):
         )
 
 
+def _print_certificate_status(entries, cert_dir):
+    click.echo(f"Certificate store: {cert_dir}")
+    if not entries:
+        click.echo("No certificate leaves found.")
+        return
+
+    columns = (
+        ("Status", 14),
+        ("Registered Domain", 20),
+        ("Certificate Path", 18),
+        ("Domains", 42),
+        ("Expires", 22),
+        ("Days", 6),
+        ("Path", 36),
+    )
+    click.echo(" ".join(f"{title:<{width}}" for title, width in columns))
+    click.echo("-" * (sum(width for _, width in columns) + len(columns) - 1))
+    for entry in entries:
+        domains = entry.get("domains")
+        if isinstance(domains, list):
+            domains = ", ".join(str(domain) for domain in domains)
+        row = (
+            entry.get("status"),
+            entry.get("registered_domain"),
+            entry.get("cert_path"),
+            domains,
+            entry.get("not_after"),
+            entry.get("days_remaining"),
+            entry.get("path"),
+        )
+        click.echo(
+            " ".join(
+                f"{_table_cell(value, width):<{width}}"
+                for value, (_, width) in zip(row, columns)
+            )
+        )
+
+
+class ManifestCommandGroup(click.Group):
+    """Keep ``chatdns cert manifest <path>`` as shorthand for ``show <path>``."""
+
+    def resolve_command(self, ctx, args):
+        if args and args[0] not in self.commands and not args[0].startswith("-"):
+            args = ["show", *args]
+        return super().resolve_command(ctx, args)
+
+
 def _validate_cert_path_option(ctx, param, value):
     del ctx
     if value is None:
@@ -1023,14 +1070,96 @@ def cert_check(ctx, domains, cert_dir, cert_path, provider):
             )
 
 
-@cert_group.command(name="manifest")
+@cert_group.command(name="status")
+@click.argument("domains", nargs=-1)
+@click.option(
+    "--cert-dir",
+    default=None,
+    help="Certificate directory; defaults to CHATDNS_CERT_DIR or $CHATARCH_HOME/certs.",
+)
+@click.option(
+    "--cert-path",
+    default=None,
+    metavar="NAME",
+    callback=_validate_cert_path_option,
+    help="Limit scan to one certificate-path family below each registered domain.",
+)
+@click.option(
+    "--expiring-within",
+    default=30,
+    show_default=True,
+    type=click.IntRange(min=0),
+    help="Mark certificates expiring within this many days as expiring.",
+)
+@click.option(
+    "--format",
+    "output_format",
+    default="table",
+    show_default=True,
+    type=click.Choice(["table", "json"]),
+    help="Output format.",
+)
+@click.option(
+    "--strict",
+    is_flag=True,
+    help="Exit non-zero when any selected certificate is missing, invalid, expired, or expiring.",
+)
+@click.pass_context
+def cert_status(ctx, domains, cert_dir, cert_path, expiring_within, output_format, strict):
+    """Scan the internal certificate store and report current leaf status."""
+    from .cert import inspect_certificate_store
+
+    load_chatdns_config(env_profile=_env_profile(ctx), home=_chatarch_home(ctx))
+    cert_dir_path = resolve_cert_dir(cert_dir, home=_chatarch_home(ctx))
+    try:
+        entries = inspect_certificate_store(
+            cert_dir_path,
+            list(domains),
+            cert_path=cert_path,
+            expiring_within_days=expiring_within,
+        )
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    if output_format == "json":
+        click.echo(
+            json.dumps(
+                {"cert_dir": str(cert_dir_path), "certificates": entries},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+    else:
+        _print_certificate_status(entries, cert_dir_path)
+
+    if strict:
+        bad = [entry for entry in entries if entry.get("status") != "valid"]
+        if bad:
+            raise click.ClickException(
+                f"Certificate status strict check failed for {len(bad)} entr{'y' if len(bad) == 1 else 'ies'}."
+            )
+
+
+@cert_group.group(
+    name="manifest",
+    cls=ManifestCommandGroup,
+    invoke_without_command=True,
+)
+@click.pass_context
+def cert_manifest(ctx):
+    """Show, create, or validate Infra certificate manifests."""
+    if ctx.invoked_subcommand is None:
+        ctx.invoke(cert_manifest_show, manifest_path=Path("manifest.json"))
+
+
+@cert_manifest.command(name="show")
 @click.argument(
     "manifest_path",
     required=False,
     default="manifest.json",
     type=click.Path(path_type=Path, dir_okay=False),
 )
-def cert_manifest(manifest_path):
+def cert_manifest_show(manifest_path):
     """Render an Infra certificate manifest as a table without modifying it."""
     if not manifest_path.is_file():
         raise click.ClickException(f"Manifest not found: {manifest_path}")
@@ -1041,6 +1170,151 @@ def cert_manifest(manifest_path):
     except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
         raise click.ClickException(f"Unable to read manifest {manifest_path}: {exc}") from exc
     _print_certificate_manifest(groups, manifest_path)
+
+
+@cert_manifest.command(name="init")
+@click.argument(
+    "manifest_path",
+    required=False,
+    default="manifest.json",
+    type=click.Path(path_type=Path, dir_okay=False),
+)
+@click.option(
+    "--cert-dir",
+    default=None,
+    help="Certificate directory to scan; defaults to CHATDNS_CERT_DIR or $CHATARCH_HOME/certs.",
+)
+@click.option(
+    "--cert-path",
+    default=None,
+    metavar="NAME",
+    callback=_validate_cert_path_option,
+    help="Limit scan to one certificate-path family below each registered domain.",
+)
+@click.option(
+    "--from-store",
+    is_flag=True,
+    help="Scan the local ChatDNS certificate store. Currently this is the only supported source.",
+)
+@click.option(
+    "--scripts-dir",
+    default=None,
+    type=click.Path(file_okay=False, dir_okay=True, path_type=Path),
+    help="Directory where a README for manually authored sync scripts is created; defaults to sibling scripts/.",
+)
+@click.option("--force", is_flag=True, help="Overwrite an existing manifest file.")
+@click.option(
+    "--format",
+    "output_format",
+    default="table",
+    show_default=True,
+    type=click.Choice(["table", "json"]),
+    help="Output format for the creation receipt.",
+)
+@click.pass_context
+def cert_manifest_init(
+    ctx,
+    manifest_path,
+    cert_dir,
+    cert_path,
+    from_store,
+    scripts_dir,
+    force,
+    output_format,
+):
+    """Create an Infra manifest and scripts/README scaffold from the local store."""
+    del from_store  # kept explicit for CLI readability; local store is the only source.
+    from .cert import build_certificate_manifest, certificate_manifest_readme
+
+    load_chatdns_config(env_profile=_env_profile(ctx), home=_chatarch_home(ctx))
+    cert_dir_path = resolve_cert_dir(cert_dir, home=_chatarch_home(ctx))
+    manifest_path = manifest_path.expanduser()
+    if manifest_path.exists() and not force:
+        raise click.ClickException(f"Manifest already exists: {manifest_path} (use --force to overwrite)")
+    if scripts_dir is None:
+        scripts_dir = manifest_path.parent / "scripts"
+    scripts_dir = scripts_dir.expanduser()
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+
+    manifest = build_certificate_manifest(
+        cert_dir_path,
+        cert_path=cert_path,
+        scripts_dir=scripts_dir,
+    )
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    readme_path = scripts_dir / "README.md"
+    readme_created = False
+    if not readme_path.exists():
+        readme_path.write_text(
+            certificate_manifest_readme(manifest_path.name), encoding="utf-8"
+        )
+        readme_created = True
+
+    receipt = {
+        "manifest": str(manifest_path),
+        "cert_dir": str(cert_dir_path),
+        "certificate_count": len(manifest.get("certificates", [])),
+        "scripts_dir": str(scripts_dir),
+        "scripts_readme": str(readme_path),
+        "scripts_readme_created": readme_created,
+        "script_policy": "manual",
+    }
+    if output_format == "json":
+        click.echo(json.dumps(receipt, ensure_ascii=False, indent=2))
+    else:
+        click.echo(f"Created manifest: {manifest_path}")
+        click.echo(f"Certificates: {receipt['certificate_count']}")
+        click.echo(
+            f"Scripts README: {readme_path} ({'created' if readme_created else 'exists'})"
+        )
+        click.echo("No sync script was generated; edit scripts manually for each server.")
+
+
+@cert_manifest.command(name="validate")
+@click.argument(
+    "manifest_path",
+    required=False,
+    default="manifest.json",
+    type=click.Path(path_type=Path, dir_okay=False),
+)
+def cert_manifest_validate(manifest_path):
+    """Validate manifest shape and referenced local certificate files."""
+    from .cert import CERT_STORE_REQUIRED_FILES
+
+    if not manifest_path.is_file():
+        raise click.ClickException(f"Manifest not found: {manifest_path}")
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8") or "{}")
+        groups = _manifest_certificate_groups(data)
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
+        raise click.ClickException(f"Unable to read manifest {manifest_path}: {exc}") from exc
+
+    cert_root = Path(data.get("cert_root", manifest_path.parent)).expanduser() if isinstance(data, dict) else manifest_path.parent
+    errors = []
+    for index, group in enumerate(groups, start=1):
+        local_dir = group.get("path") or group.get("local_dir") or group.get("cert_path")
+        if not local_dir:
+            errors.append(f"entry {index}: missing path/local_dir")
+            continue
+        path = Path(str(local_dir)).expanduser()
+        if not path.is_absolute():
+            path = cert_root / path
+        if not path.is_dir():
+            errors.append(f"entry {index}: missing directory {path}")
+            continue
+        for filename in CERT_STORE_REQUIRED_FILES:
+            if not (path / filename).is_file():
+                errors.append(f"entry {index}: missing {filename} under {path}")
+
+    if errors:
+        for error in errors:
+            click.echo(error)
+        raise click.ClickException(f"Manifest validation failed with {len(errors)} error(s).")
+    click.echo(f"Manifest valid: {manifest_path} ({len(groups)} certificate entries)")
 
 
 def _certbot_challenge_record(domain: str, dns_client=None) -> tuple[str, str]:

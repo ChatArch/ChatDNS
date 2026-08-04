@@ -8,10 +8,11 @@ Start with the [Quick Start](quickstart.md) if provider profiles are not configu
 
 ```text
 chatdns
-├── cert                # DNS-01 certificate issuance, checks, and Infra manifest rendering
+├── cert                # DNS-01 issuance, store inventory, and Infra manifest scaffolding
 │   ├── apply           # Issue or renew; writes DNS TXT records and local certificate files
-│   ├── check           # Inspect local expiry and renewal status
-│   └── manifest        # Render a separate Infra manifest without modifying it
+│   ├── check           # Inspect renewal status for requested names
+│   ├── status          # Scan the internal certificate root and report leaf status
+│   └── manifest        # show/init/validate Infra manifests; init writes only local files/README
 ├── ddns                # Update once or monitor a dynamic IP; may write DNS records
 ├── delete              # Filter and delete DNS records
 ├── ip                  # Detect public or local IP without changing DNS
@@ -35,8 +36,9 @@ Public top-level options:
 | --- | --- | --- |
 | Read | `list`, `records` | Query provider APIs without changing DNS |
 | Read | `ip` | Public mode calls IP detection services; local mode scans local interfaces |
-| Read | `cert check` | Reads local certificates and computes renewal state; no ACME request |
-| Read | `cert manifest` | Reads and renders a JSON manifest without modifying it |
+| Read | `cert check`, `cert status` | Reads local certificates and computes renewal/inventory state; no ACME request |
+| Read | `cert manifest show`, `cert manifest validate` | Reads and displays or validates a JSON manifest without modifying it |
+| Local file write | `cert manifest init` | Scans the certificate root and writes an Infra `manifest.json` plus `scripts/README.md`; does not write the live cert root |
 | DNS write | `set`, `delete`, `ddns` | Create, update, or delete provider records |
 | DNS and certificate write | `cert apply` | Write `_acme-challenge` TXT records, run ACME, and install local PEM files |
 
@@ -144,8 +146,27 @@ chatdns cert check [DOMAINS]...
 ├── --cert-path NAME
 └── --provider aliyun|tencent
 
-chatdns cert manifest [MANIFEST_PATH]
+chatdns cert status [DOMAINS]...
+├── --cert-dir DIR
+├── --cert-path NAME
+├── --expiring-within DAYS       # Default: 30
+├── --format table|json          # Default: table
+└── --strict                     # Non-zero when a selected leaf is not valid
+
+chatdns cert manifest [MANIFEST_PATH]    # Compatibility shorthand for show
+chatdns cert manifest show [MANIFEST_PATH]
 └── MANIFEST_PATH                # Default: ./manifest.json; read-only
+
+chatdns cert manifest init [MANIFEST_PATH]
+├── --cert-dir DIR               # Certificate root; defaults to CHATDNS_CERT_DIR or $CHATARCH_HOME/certs
+├── --cert-path NAME             # Optional leaf-name / suffix-family filter
+├── --from-store                 # Explicitly use the local certificate root as source
+├── --scripts-dir DIR            # Default: sibling scripts/; creates README.md only
+├── --force                      # Overwrite existing manifest
+└── --format table|json          # Default: table creation receipt
+
+chatdns cert manifest validate [MANIFEST_PATH]
+└── MANIFEST_PATH                # Validate manifest shape and local certificate-file references
 ```
 
 Certificate-root precedence is explicit `--cert-dir`, then ChatEnv `CHATDNS_CERT_DIR`, then `$CHATARCH_HOME/certs`. Production leaves live at:
@@ -178,7 +199,18 @@ chatdns --env work cert apply \
 chatdns cert check '*.example.com' --cert-path default
 ```
 
-`cert manifest` does not scan the certificate root or deploy certificates. It only renders a separate Infra manifest. SSH synchronization, Nginx path updates, `nginx -t`, reload, and rollback belong to Infra, not ChatDNS.
+`cert status` is the primary answer to “what is in the internal certificate store right now?”. `cert manifest init` generates an Infra-workspace `manifest.json` from the certificate root and creates a sibling `scripts/README.md` that explains the manual-script boundary. It does not write the manifest into the live certificate root and does not generate or execute server sync scripts.
+
+### Manifest And Script Boundary
+
+```text
+Infra workspace
+├── manifest.json          # generated/overwritten by chatdns cert manifest init
+└── scripts/
+    └── README.md          # ChatDNS-created note; models/operators hand-write real sync scripts per server
+```
+
+ChatDNS does not provide `chatdns cert script ...` commands. SSH synchronization, Nginx path updates, `nginx -t`, reload, and rollback are Infra-site operations, not hard-coded ChatDNS behavior. A model or operator should read `manifest.json` and then hand-write scripts from the target server's SSH entrypoint, paths, supervisor/process manager, rollback policy, and verification commands.
 
 ## Profiles and Interaction
 

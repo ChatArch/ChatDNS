@@ -124,9 +124,9 @@ Input names from one provider-managed zone form one SAN certificate. One directo
 3. checks that every requested SAN is covered;
 4. requests a certificate only when required or when `--force` is explicit.
 
-## Infra Manifest Table
+## Infra Manifest, Status, And Scripts
 
-`manifest.json` and model-authored `scripts/` belong to the separate Infra workspace, not to the certificate root. ChatDNS renders a manifest read-only and never creates or rewrites it:
+`chatdns cert manifest show` is the read-only view; it remains compatible with the old `chatdns cert manifest [PATH]` spelling:
 
 ```bash
 cd Infra
@@ -135,6 +135,16 @@ chatdns cert manifest ./manifest.json
 ```
 
 An empty file, empty object, or empty `certificates` container renders as an empty table. The command accepts top-level `certificate_groups`, `certificates`, or `groups` collections and shows ID, registered domain, certificate path, SANs, deployment counts, and status.
+
+The current workflow splits into three layers:
+
+| Need | CLI | Write location |
+| --- | --- | --- |
+| View the current internal certificate state | `chatdns cert status [DOMAINS]...` | Read-only scan of the certificate root |
+| Create/update the certificate inventory | `chatdns cert manifest init ./manifest.json --from-store` | Infra-workspace `manifest.json`, not the live certificate root |
+| Reserve a manual sync-script entrypoint | `chatdns cert manifest init ... --scripts-dir ./scripts` | Creates only `scripts/README.md`, not script logic |
+
+`manifest.json` and `scripts/` are Infra orchestration assets, not live certificate-root contents. The live root still contains only the two-level certificate tree and four PEM files per leaf. `status` can read the live root; `manifest init` writes leaf/SAN/expiry/status into the manifest and creates `scripts/README.md` to explain that models or operators must hand-write synchronization scripts from live server facts. ChatDNS does not provide a `cert script` generation or execution interface.
 
 ## Remote Infrastructure Path
 

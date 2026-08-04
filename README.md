@@ -53,8 +53,9 @@ chatdns --env work cert check '*.example.com' --cert-path default
 chatdns
 ├── cert
 │   ├── apply       # DNS-01 申请并安装证书；写 DNS 与本地证书
-│   ├── check       # 只读检查本地证书状态
-│   └── manifest    # 只读渲染 Infra manifest
+│   ├── check       # 只读检查指定域名续期状态
+│   ├── status      # 只读扫描内部证书根
+│   └── manifest    # show/init/validate Infra manifest；init 只写本地清单/README
 ├── ddns            # 单次或持续更新 A 记录
 ├── delete          # 删除记录
 ├── ip              # 查询 public/local IP
@@ -64,6 +65,8 @@ chatdns
 ```
 
 完整参数、profile 位置规则、交互选项和副作用矩阵见 [CLI 树](docs/cli-tree.md)。
+
+证书状态入口是 `chatdns cert status`。`chatdns cert manifest init` 会从当前证书根创建/更新 Infra 工作区里的 `manifest.json`，并创建 `scripts/README.md` 作为模型/人工手写同步脚本的说明入口；ChatDNS 不提供 `cert script` 生成或执行接口。
 
 ## 配置解析
 
@@ -81,11 +84,12 @@ Profile 使用全局 `chatdns --env PROFILE ...` 选择；DNS 命令也支持命
 | --- | --- |
 | `list`、`records` | provider 只读 API |
 | `ip` | 本机接口读取或公网 IP 查询 |
-| `cert check`、`cert manifest` | 本地只读 |
+| `cert check`、`cert status`、`cert manifest show`、`cert manifest validate` | 本地只读 |
+| `cert manifest init` | 只写本地 Infra `manifest.json` 与 `scripts/README.md` |
 | `set`、`delete`、`ddns` | 写 DNS provider |
 | `cert apply` | 写 DNS challenge 与本地证书 |
 
-ChatDNS 负责 DNS、证书申请/检查和 manifest 解析；SSH 分发、Nginx rewrite/reload 与服务器 rollback 属于 Infra，不在 ChatDNS 中执行。
+ChatDNS 负责 DNS、证书申请/检查、证书根状态扫描和 manifest 创建/解析；SSH 分发、Nginx rewrite/reload 与服务器 rollback 属于 Infra，不在 ChatDNS 中执行，也不生成同步脚本。
 
 ## Python API 与 MCP
 

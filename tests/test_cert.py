@@ -73,6 +73,14 @@ def _write_test_certificate(path: Path, sans: list[str], *, days: int = 90) -> N
     path.write_bytes(certificate.public_bytes(serialization.Encoding.PEM))
 
 
+def _write_complete_certificate_leaf(path: Path, sans: list[str], *, days: int = 90) -> None:
+    _write_test_certificate(path / "fullchain.pem", sans, days=days)
+    cert_text = (path / "fullchain.pem").read_text(encoding="utf-8")
+    (path / "cert.pem").write_text(cert_text, encoding="utf-8")
+    (path / "chain.pem").write_text(cert_text, encoding="utf-8")
+    (path / "privkey.pem").write_text("test-private-key\n", encoding="utf-8")
+
+
 def test_cert_apply_invokes_ssl_updater_without_live_acme():
     runner = CliRunner()
     with patch("chatdns.cert.SSLCertUpdater") as updater_cls:
@@ -959,6 +967,175 @@ def test_cert_manifest_rejects_invalid_json(tmp_path):
 
     assert result.exit_code != 0
     assert "Unable to read manifest" in result.output
+
+
+def test_cert_status_scans_internal_store_without_dns_client(tmp_path):
+    cert_root = tmp_path / "certs"
+    _write_complete_certificate_leaf(
+        cert_root / "example.com" / "default",
+        ["example.com", "*.example.com"],
+    )
+
+    result = CliRunner().invoke(
+        main, ["cert", "status", "--cert-dir", str(cert_root)], catch_exceptions=False
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Certificate store:" in result.output
+    assert "valid" in result.output
+    assert "example.com" in result.output
+    assert "default" in result.output
+
+    json_result = CliRunner().invoke(
+        main,
+        ["cert", "status", "--cert-dir", str(cert_root), "--format", "json"],
+        catch_exceptions=False,
+    )
+    payload = json.loads(json_result.output)
+    assert payload["certificates"][0]["status"] == "valid"
+    assert payload["certificates"][0]["local_dir"] == "example.com/default"
+
+
+def test_cert_status_output_does_not_leak_private_key_contents(tmp_path):
+    cert_root = tmp_path / "certs"
+    leaf = cert_root / "example.com" / "default"
+    _write_complete_certificate_leaf(leaf, ["example.com", "*.example.com"])
+    begin_marker = "-----BEGIN " + "PRIVATE KEY-----"
+    end_marker = "-----END " + "PRIVATE KEY-----"
+    private_key_contents = (
+        f"{begin_marker}\n"
+        "top-secret-test-key-material\n"
+        f"{end_marker}\n"
+    )
+    (leaf / "privkey.pem").write_text(private_key_contents, encoding="utf-8")
+
+    table_result = CliRunner().invoke(
+        main, ["cert", "status", "--cert-dir", str(cert_root)], catch_exceptions=False
+    )
+    json_result = CliRunner().invoke(
+        main,
+        ["cert", "status", "--cert-dir", str(cert_root), "--format", "json"],
+        catch_exceptions=False,
+    )
+
+    for result in (table_result, json_result):
+        assert result.exit_code == 0, result.output
+        assert "top-secret-test-key-material" not in result.output
+        assert begin_marker not in result.output
+        assert end_marker not in result.output
+    assert "privkey.pem" in json_result.output
+
+
+def test_cert_status_skips_symlinked_zones_and_leaves(tmp_path):
+    cert_root = tmp_path / "certs"
+    _write_complete_certificate_leaf(
+        cert_root / "example.com" / "default",
+        ["example.com", "*.example.com"],
+    )
+
+    external_zone = tmp_path / "external-zone"
+    _write_complete_certificate_leaf(
+        external_zone / "default",
+        ["evil.example.com"],
+    )
+    (cert_root / "evil.example.com").symlink_to(
+        external_zone, target_is_directory=True
+    )
+
+    external_leaf = tmp_path / "external-leaf"
+    _write_complete_certificate_leaf(external_leaf, ["linked.example.com"])
+    symlink_zone = cert_root / "linked.example.com"
+    symlink_zone.mkdir(parents=True)
+    (symlink_zone / "default").symlink_to(external_leaf, target_is_directory=True)
+
+    result = CliRunner().invoke(
+        main,
+        ["cert", "status", "--cert-dir", str(cert_root), "--format", "json"],
+        catch_exceptions=False,
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert [entry["local_dir"] for entry in payload["certificates"]] == [
+        "example.com/default"
+    ]
+    output = json.dumps(payload, ensure_ascii=False)
+    assert "evil.example.com" not in output
+    assert "linked.example.com" not in output
+
+
+def test_cert_status_strict_fails_for_missing_requested_domain(tmp_path):
+    result = CliRunner().invoke(
+        main,
+        [
+            "cert",
+            "status",
+            "missing.example.com",
+            "--cert-dir",
+            str(tmp_path / "certs"),
+            "--strict",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "missing.example.com" in result.output
+    assert "strict check failed" in result.output
+
+
+def test_cert_manifest_init_creates_manifest_and_manual_scripts_readme(tmp_path):
+    cert_root = tmp_path / "certs"
+    _write_complete_certificate_leaf(
+        cert_root / "example.com" / "default",
+        ["example.com", "*.example.com"],
+    )
+    manifest = tmp_path / "infra" / "manifest.json"
+
+    result = CliRunner().invoke(
+        main,
+        [
+            "cert",
+            "manifest",
+            "init",
+            str(manifest),
+            "--cert-dir",
+            str(cert_root),
+            "--from-store",
+        ],
+        catch_exceptions=False,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "No sync script was generated" in result.output
+    scripts_dir = manifest.parent / "scripts"
+    assert manifest.is_file()
+    assert sorted(path.name for path in scripts_dir.iterdir()) == ["README.md"]
+    assert "manual/model-authored" in (scripts_dir / "README.md").read_text(encoding="utf-8")
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    assert data["schema"] == "chatdns.certificate-manifest.v1"
+    assert data["script_policy"]["mode"] == "manual"
+    assert data["certificates"][0]["local_dir"] == "example.com/default"
+
+    validate = CliRunner().invoke(
+        main, ["cert", "manifest", "validate", str(manifest)], catch_exceptions=False
+    )
+    assert validate.exit_code == 0, validate.output
+    assert "Manifest valid" in validate.output
+
+    show = CliRunner().invoke(
+        main, ["cert", "manifest", "show", str(manifest)], catch_exceptions=False
+    )
+    assert show.exit_code == 0, show.output
+    assert "example.com/default" in show.output
+
+
+def test_cert_manifest_init_refuses_to_overwrite_without_force(tmp_path):
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text("{}", encoding="utf-8")
+
+    result = CliRunner().invoke(main, ["cert", "manifest", "init", str(manifest)])
+
+    assert result.exit_code != 0
+    assert "use --force" in result.output
 
 
 def test_cert_path_cli_validation_is_a_click_error(tmp_path):

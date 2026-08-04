@@ -53,8 +53,9 @@ Confirm the account, zone, and records before running `set`, `delete`, `ddns`, o
 chatdns
 ├── cert
 │   ├── apply       # Issue/install through DNS-01; writes DNS and local certs
-│   ├── check       # Read-only local certificate status
-│   └── manifest    # Read-only Infra manifest rendering
+│   ├── check       # Read-only renewal check for requested names
+│   ├── status      # Read-only internal certificate-store scan
+│   └── manifest    # show/init/validate Infra manifests; init writes only local files/README
 ├── ddns            # One-shot or monitored A updates
 ├── delete          # Delete a DNS record
 ├── ip              # Detect public/local IP
@@ -64,6 +65,8 @@ chatdns
 ```
 
 See the [CLI Tree](docs/cli-tree.en.md) for full options, profile placement rules, interactive flags, and the side-effect matrix.
+
+Use `chatdns cert status` to inspect the current internal certificate store. `chatdns cert manifest init` creates or updates an Infra-workspace `manifest.json` and a `scripts/README.md` manual-edit scaffold; ChatDNS does not provide a `cert script` generation or execution interface.
 
 ## Configuration resolution
 
@@ -81,11 +84,12 @@ Select a profile globally with `chatdns --env PROFILE ...`; DNS commands also ex
 | --- | --- |
 | `list`, `records` | read-only provider API |
 | `ip` | local interface reads or a public-IP request |
-| `cert check`, `cert manifest` | local read-only |
+| `cert check`, `cert status`, `cert manifest show`, `cert manifest validate` | local read-only |
+| `cert manifest init` | writes local Infra `manifest.json` and `scripts/README.md` only |
 | `set`, `delete`, `ddns` | writes to the DNS provider |
 | `cert apply` | writes DNS challenges and local certificates |
 
-ChatDNS owns DNS operations, certificate issuance/checks, and manifest parsing. SSH distribution, Nginx rewrite/reload, and server rollback belong to Infra and are not executed by ChatDNS.
+ChatDNS owns DNS operations, certificate issuance/checks, certificate-store status scans, and manifest creation/parsing. SSH distribution, Nginx rewrite/reload, and server rollback belong to Infra; ChatDNS does not execute or generate sync scripts.
 
 ## Python API and MCP
 

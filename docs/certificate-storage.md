@@ -124,9 +124,9 @@ $CHATARCH_HOME/private/chatdns/acme/
 3. 检查 SAN 是否覆盖全部请求名称；
 4. 仅在缺失、临期、SAN 不完整或显式 `--force` 时申请。
 
-## Infra manifest 可视化
+## Infra manifest、status 与 scripts
 
-`manifest.json` 和模型按现场情况编写的 `scripts/` 属于独立 Infra 工作区，不属于证书根。ChatDNS 只读展示 manifest，不会创建或改写它：
+`chatdns cert manifest show` 是只读展示接口；兼容旧写法 `chatdns cert manifest [PATH]`：
 
 ```bash
 cd Infra
@@ -135,6 +135,16 @@ chatdns cert manifest ./manifest.json
 ```
 
 空文件、空对象和空 `certificates` 容器都会显示为空表。当前命令兼容 `certificate_groups`、`certificates` 和 `groups` 三种顶层集合，并显示 ID、注册域名、证书路径、SAN、部署数量与状态。
+
+当前职责拆成三层：
+
+| 需求 | CLI | 写入位置 |
+| --- | --- | --- |
+| 查看当前内部证书状态 | `chatdns cert status [DOMAINS]...` | 只读扫描证书根 |
+| 创建/补齐证书信息清单 | `chatdns cert manifest init ./manifest.json --from-store` | Infra 工作区 `manifest.json`，不写入 live cert root |
+| 给同步脚本预留手写入口 | `chatdns cert manifest init ... --scripts-dir ./scripts` | 只创建 `scripts/README.md`，不生成脚本逻辑 |
+
+`manifest.json` 和 `scripts/` 是 Infra 编排资产，不是 live cert root 的一部分。live root 仍然只保留两层证书目录和每个 leaf 的四个 PEM 文件。`status` 可以读取 live root；`manifest init` 把读到的 leaf/SAN/expiry/status 写入 manifest，并创建 `scripts/README.md` 说明同步脚本必须由模型或操作者按实际服务器手写。ChatDNS 不提供 `cert script` 生成或执行接口。
 
 ## 远端 Infra 路径
 
