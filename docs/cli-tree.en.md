@@ -180,6 +180,45 @@ chatdns cert check '*.example.com' --cert-path default
 
 `cert manifest` does not scan the certificate root or deploy certificates. It only renders a separate Infra manifest. SSH synchronization, Nginx path updates, `nginx -t`, reload, and rollback belong to Infra, not ChatDNS.
 
+### Certificate Operations Gap And Target Interface
+
+The current `0.1.7` public help exposes only `cert apply`, `cert check`, and `cert manifest`:
+
+- `cert check` requires domains first. It answers whether those names have a local certificate and whether renewal is needed; it does not inventory the whole internal certificate root.
+- `cert manifest [PATH]` is only a read-only renderer. It reads existing JSON and prints a table; it does not create `manifest.json`.
+- ChatDNS currently does not create `scripts/` or generate common server certificate-sync scripts.
+
+The next certificate-operations interface should follow this target tree. These entries are not published commands until implemented. Keep the old `chatdns cert manifest [PATH]` call as a compatibility entry for `manifest show`.
+
+```text
+chatdns cert
+├── status [DOMAINS]...          # Scan the certificate root; default to all leaves when no domains are given
+│   ├── --cert-dir DIR           # Explicit certificate root
+│   ├── --cert-path NAME         # Limit to a leaf name / suffix family below the registered domain
+│   ├── --expiring-within DAYS   # Expiry threshold; default: 30
+│   ├── --format table|json      # Human-readable table or automation JSON
+│   └── --strict                 # Non-zero when files are missing, corrupt, expiring, or SANs do not match
+├── check [DOMAINS]...           # Existing targeted renewal check
+├── manifest
+│   ├── show [MANIFEST_PATH]     # Read-only view; compatible with old cert manifest [PATH]
+│   ├── init [MANIFEST_PATH]     # Generate/update manifest.json from the current certificate root
+│   │   ├── --cert-dir DIR
+│   │   ├── --from-store         # Scan <cert-root>/<registered-domain>/<cert-path>/
+│   │   ├── --force              # Required before overwriting an existing manifest
+│   │   └── --format json
+│   └── validate [MANIFEST_PATH] # Validate manifest fields, certificate paths, and SAN coverage
+└── script
+    ├── list                     # List built-in sync script templates
+    ├── render TEMPLATE          # Render sync scripts under scripts/ from a manifest; write files only
+    │   ├── --manifest MANIFEST_PATH
+    │   ├── --output SCRIPTS_DIR # Default: ./scripts
+    │   ├── --server NAME        # Restrict to one or more manifest deployment targets
+    │   └── --force
+    └── validate SCRIPTS_DIR     # Static-check leaf references, remote paths, and reload commands
+```
+
+`status` is the primary answer to “what is in the internal certificate store right now?”. `manifest init` should create the Infra-workspace `manifest.json` with certificate leaves, SANs, expiry, deployment targets, and status; it should not write the manifest into the live certificate root. `script render` should generate common synchronization templates such as SSH+Nginx atomic sync, copy-only sync, and containerized Nginx reload, but it should not execute remote changes by default.
+
 ## Profiles and Interaction
 
 Provider selection order:

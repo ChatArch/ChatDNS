@@ -65,6 +65,8 @@ chatdns
 
 See the [CLI Tree](docs/cli-tree.en.md) for full options, profile placement rules, interactive flags, and the side-effect matrix.
 
+Certificate `status`, `manifest init`, and `script render` are not published commands yet. The target tree is documented in the certificate-operations gap section so the next implementation can align to it.
+
 ## Configuration resolution
 
 Provider precedence:

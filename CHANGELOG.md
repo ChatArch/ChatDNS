@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Document the planned certificate-operations CLI contract for internal certificate `status`, manifest creation, and sync-script generation.
+
 ## 0.1.7 - 2026-08-05
 
 - Correct README CLI-tree descriptions for the current A-only DDNS updater and public/local IP detection.

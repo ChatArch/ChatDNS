@@ -65,6 +65,8 @@ chatdns
 
 完整参数、profile 位置规则、交互选项和副作用矩阵见 [CLI 树](docs/cli-tree.md)。
 
+证书 `status`、`manifest init` 与 `script render` 还不是当前已发布命令；预期接口树已在 CLI 树的证书运维缺口部分列出，用于对齐后续实现。
+
 ## 配置解析
 
 Provider 选择顺序：

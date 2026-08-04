@@ -182,6 +182,45 @@ chatdns cert check '*.example.com' --cert-path default
 
 `cert manifest` 不扫描证书根，也不部署证书；它只把独立 Infra manifest 渲染为表格。SSH 同步、Nginx 路径更新、`nginx -t`、reload 和 rollback 属于 Infra，而不是 ChatDNS。
 
+### 证书运维缺口与预期接口
+
+当前 `0.1.7` 的公开 help 只有 `cert apply`、`cert check` 和 `cert manifest`：
+
+- `cert check` 必须先给出域名，只回答这些域名是否有本地证书、是否需要续期；它不能全量扫描内部证书根。
+- `cert manifest [PATH]` 只是只读 renderer；它读取已有 JSON 并渲染表格，不会创建 `manifest.json`。
+- ChatDNS 当前不会创建 `scripts/`，也不会生成常见服务器的证书同步脚本。
+
+需求对齐后的下一版证书运维接口应是下面这棵树。实现前不要把这些条目当成已发布命令；实现时应保留旧的 `chatdns cert manifest [PATH]` 作为 `manifest show` 的兼容入口。
+
+```text
+chatdns cert
+├── status [DOMAINS]...          # 扫描证书根并输出当前内部证书状态；无域名时默认全量
+│   ├── --cert-dir DIR           # 显式证书根
+│   ├── --cert-path NAME         # 限定注册域名下的 leaf 名称/后缀族
+│   ├── --expiring-within DAYS   # 临期阈值；默认 30
+│   ├── --format table|json      # 人读表格或自动化 JSON
+│   └── --strict                 # 缺文件、证书损坏、临期或 SAN 不匹配时非零退出
+├── check [DOMAINS]...           # 兼容已有目标域名续期检查
+├── manifest
+│   ├── show [MANIFEST_PATH]     # 只读展示 manifest；兼容旧 cert manifest [PATH]
+│   ├── init [MANIFEST_PATH]     # 从当前证书根生成/补齐 manifest.json
+│   │   ├── --cert-dir DIR
+│   │   ├── --from-store         # 扫描 <cert-root>/<registered-domain>/<cert-path>/
+│   │   ├── --force              # 覆盖已有 manifest 前必须显式确认
+│   │   └── --format json
+│   └── validate [MANIFEST_PATH] # 校验 manifest 字段、证书路径和 SAN 覆盖
+└── script
+    ├── list                     # 列出内置同步脚本模板
+    ├── render TEMPLATE          # 基于 manifest 渲染 scripts/ 下的同步脚本；只写文件不执行
+    │   ├── --manifest MANIFEST_PATH
+    │   ├── --output SCRIPTS_DIR # 默认 ./scripts
+    │   ├── --server NAME        # 限定 manifest 中的一个或多个部署目标
+    │   └── --force
+    └── validate SCRIPTS_DIR     # 静态检查脚本引用的 leaf、远端路径和 reload 命令
+```
+
+`status` 是回答“当前内部证书是什么情况”的主入口。`manifest init` 应创建 Infra 工作区里的 `manifest.json`，记录证书 leaf、SAN、到期时间、部署目标和状态；它不应把 manifest 写进 live cert root。`script render` 应生成几个常用同步脚本模板，例如 SSH+Nginx 原子同步、只同步不 reload、容器内 Nginx reload 等，但默认只生成脚本，不直接执行远端变更。
+
 ## Profile 与交互规则
 
 Provider 选择顺序：

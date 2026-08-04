@@ -124,9 +124,9 @@ Input names from one provider-managed zone form one SAN certificate. One directo
 3. checks that every requested SAN is covered;
 4. requests a certificate only when required or when `--force` is explicit.
 
-## Infra Manifest Table
+## Infra Manifest, Status, And Scripts
 
-`manifest.json` and model-authored `scripts/` belong to the separate Infra workspace, not to the certificate root. ChatDNS renders a manifest read-only and never creates or rewrites it:
+In current `0.1.7`, `chatdns cert manifest` is only a read-only view:
 
 ```bash
 cd Infra
@@ -135,6 +135,16 @@ chatdns cert manifest ./manifest.json
 ```
 
 An empty file, empty object, or empty `certificates` container renders as an empty table. The command accepts top-level `certificate_groups`, `certificates`, or `groups` collections and shows ID, registered domain, certificate path, SANs, deployment counts, and status.
+
+The aligned contract should split the workflow into three layers:
+
+| Need | Target CLI | Write location |
+| --- | --- | --- |
+| View the current internal certificate state | `chatdns cert status [DOMAINS]...` | Read-only scan of the certificate root |
+| Create/update the certificate inventory | `chatdns cert manifest init ./manifest.json --from-store` | Infra-workspace `manifest.json`, not the live certificate root |
+| Generate common server sync scripts | `chatdns cert script render TEMPLATE --manifest ./manifest.json --output ./scripts` | Infra-workspace `scripts/`; write scripts only by default |
+
+`manifest.json` and `scripts/` are Infra orchestration assets, not live certificate-root contents. The live root still contains only the two-level certificate tree and four PEM files per leaf. `status` can read the live root; `manifest init` writes leaf/SAN/expiry/deployment metadata into the manifest; `script render` then uses the manifest to generate common templates such as SSH+Nginx atomic sync, copy-only sync, and containerized Nginx reload.
 
 ## Remote Infrastructure Path
 
