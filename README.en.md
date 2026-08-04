@@ -1,69 +1,107 @@
-<p align="center">
-    <a href="https://pypi.python.org/pypi/ChatDNS">
-        <img src="https://img.shields.io/pypi/v/ChatDNS.svg" alt="PyPI version" />
-    </a>
-    <a href="https://github.com/ChatArch/ChatDNS/actions/workflows/ci.yml">
-        <img src="https://github.com/ChatArch/ChatDNS/actions/workflows/ci.yml/badge.svg" alt="Tests" />
-    </a>
-    <a href="https://arch.gh.wzhecnu.cn/ChatDNS/">
-        <img src="https://img.shields.io/badge/docs-latest-blue.svg" alt="Docs" />
-    </a>
-</p>
-
 # ChatDNS
 
-ChatDNS 是从 ChatTool 分离出来的 ChatArch DNS helper。它提供独立 `chatdns` CLI 和可导入 Python API，用于 DNS 记录管理、DDNS 更新、云厂商 provider client、IP 探测、DNS-01 证书自动化与 MCP 注册。
+[English](README.en.md) · [简体中文](README.md)
 
-## 命令
+ChatDNS is ChatArch's DNS, DDNS, and ACME DNS-01 certificate tool. It presents one workflow across Aliyun DNS and Tencent Cloud / DNSPod providers, selects accounts through ChatEnv profiles, and safely installs certificates under `$CHATARCH_HOME/certs/<registered-domain>/<cert-path>/`.
+
+- Documentation: <https://arch.gh.wzhecnu.cn/ChatDNS/en/>
+- Quick Start: <https://arch.gh.wzhecnu.cn/ChatDNS/en/quickstart/>
+- CLI Tree: <https://arch.gh.wzhecnu.cn/ChatDNS/en/cli-tree/>
+- Certificate Contract: <https://arch.gh.wzhecnu.cn/ChatDNS/en/certificate-storage/>
+
+## Choose by scenario
+
+| Goal | Entry point |
+| --- | --- |
+| Install ChatDNS and validate a profile safely | [Quick Start](docs/quickstart.en.md) |
+| Find commands, options, and side effects | [CLI Tree](docs/cli-tree.en.md) |
+| Understand certificate paths, SAN reuse, and symlink rejection | [Certificate Storage and Allocation](docs/certificate-storage.en.md) |
+| Inspect every public command directly | `chatdns --help` |
+
+## Install
+
+**Python 3.12** is recommended. The package metadata value `>=3.10` is only the minimum compatibility floor; it does not pin an environment to Python 3.10.
 
 ```bash
-chatdns --help
-chatdns list
+uv venv --python 3.12
+uv pip install ChatDNS
+chatdns --version
+```
+
+For development:
+
+```bash
+uv pip install -e '.[dev,docs]'
+```
+
+## Start read-only
+
+Select a ChatEnv profile and provider, then begin with read-only commands:
+
+```bash
 chatdns --env work list --provider tencent
-chatdns list --provider tencent --env work
-chatdns records example.com
-chatdns records test.example.com
-chatdns set test.example.com -t A -v 1.2.3.4
-chatdns delete test.example.com -t A -v 1.2.3.4 --yes
-chatdns ip
-chatdns cert apply -d '*.precision.example.com' -e admin@example.com --provider aliyun --cert-path precision
-chatdns cert check '*.precision.example.com' --cert-path precision
-chatdns cert manifest ./manifest.json
+chatdns --env work records example.com --provider tencent
+chatdns ip --type public
+chatdns --env work cert check '*.example.com' --cert-path default
 ```
 
-当前支持：
+Confirm the account, zone, and records before running `set`, `delete`, `ddns`, or `cert apply`.
 
-- 阿里云 DNS
-- 腾讯云 DNSPod
+## CLI tree
 
-旧 `chattool dns cert` 证书管理面现已迁入 `chatdns cert`。该能力使用 ACME DNS-01 验证，并通过配置的 DNS provider 写入 `_acme-challenge` TXT 记录。证书申请和 DNS 写入是外部副作用；生产申请前建议先使用 `--staging` 验证。
+```text
+chatdns
+├── cert
+│   ├── apply       # Issue/install through DNS-01; writes DNS and local certs
+│   ├── check       # Read-only local certificate status
+│   └── manifest    # Read-only Infra manifest rendering
+├── ddns            # One-shot or monitored A / AAAA updates
+├── delete          # Delete a DNS record
+├── ip              # Resolve public / private / all IPs
+├── list            # List managed zones
+├── records         # Query records
+└── set             # Idempotently set a record
+```
 
-## 配置
+See the [CLI Tree](docs/cli-tree.en.md) for full options, profile placement rules, interactive flags, and the side-effect matrix.
 
-ChatDNS 通过环境变量 / ChatEnv-compatible config 字段读取 provider 凭证和默认渠道：
+## Configuration resolution
 
-- `CHATDNS_PROVIDER`（默认 DNS provider/channel: `aliyun` 或 `tencent`）
-- `CHATDNS_CERT_DIR`（证书存储目录；默认 `$CHATARCH_HOME/certs`）
-- `ALIBABA_CLOUD_ACCESS_KEY_ID`
-- `ALIBABA_CLOUD_ACCESS_KEY_SECRET`
-- `ALIBABA_CLOUD_REGION_ID`
-- `TENCENT_SECRET_ID`
-- `TENCENT_SECRET_KEY`
-- `TENCENT_REGION_ID`
+Provider precedence:
 
-ChatDNS 会自动加载 `$CHATARCH_HOME/envs`（默认 `~/.chatarch/envs`）下的 active ChatEnv profile。使用 `--env/-e` 可切换 named provider profile：既可以放在全局位置（`chatdns --env work list -p tencent`），也可以放在 DNS 命令上跟随 provider 使用（`chatdns list -p tencent -e work`）。命令级 `--env/-e` 会覆盖全局值。`chatdns cert apply` 的 `-e` 保留给 email，因此证书命令使用 `--env work`。
+1. command-line `--provider`;
+2. `CHATDNS_PROVIDER` in the ChatDNS profile;
+3. `aliyun`.
 
-证书根目录优先级为：显式 `--cert-dir` / Python `cert_dir`，其次是 ChatEnv `CHATDNS_CERT_DIR`，最后回退到 `$CHATARCH_HOME/certs`。每张证书存放在 `<注册域名>/<cert-path>/`；未指定名称时使用 `default`，冲突时增加数字后缀，相同 SAN 集续期复用原目录。ACME 私有状态位于证书根外的 `$CHATARCH_HOME/private/chatdns/acme`。
+Select a profile globally with `chatdns --env PROFILE ...`; DNS commands also expose command-level `--env`. Aliyun and Tencent credentials come from same-named ChatEnv profiles. Secrets never belong in the repository.
 
-完整的自动创建目录、文件权限、多 SAN 续期、中央 managed-zone 分层与远端 Infra 边界见[证书目录与创建规则](https://arch.gh.wzhecnu.cn/ChatDNS/certificate-storage/)。
+## Capabilities and boundaries
 
-包通过 `chatenv.configs` entry point 注册 `chatdns.config`。
+| Operation | Side effect |
+| --- | --- |
+| `list`, `records` | read-only provider API |
+| `ip` | local interface reads or a public-IP request |
+| `cert check`, `cert manifest` | local read-only |
+| `set`, `delete`, `ddns` | writes to the DNS provider |
+| `cert apply` | writes DNS challenges and local certificates |
 
-## 开发
+ChatDNS owns DNS operations, certificate issuance/checks, and manifest parsing. SSH distribution, Nginx rewrite/reload, and server rollback belong to Infra and are not executed by ChatDNS.
+
+## Python API and MCP
+
+```python
+from chatdns import create_dns_client, DynamicIPUpdater, SSLCertUpdater
+```
+
+MCP exposes DNS query/set, IP discovery, DDNS, and certificate issuance tools. MCP tools are not CLI subcommands. See the [CLI Tree](docs/cli-tree.en.md) for the mapping.
+
+## Verify
 
 ```bash
-python -m pytest -q
-chatpypi build --project-dir .
-chatpypi check --project-dir .
-PYTHONPATH=src python -m chatdns.cli --help
+pytest -q
+mkdocs build --strict
 ```
+
+## License
+
+MIT
