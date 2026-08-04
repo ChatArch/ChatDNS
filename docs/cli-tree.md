@@ -66,6 +66,8 @@ chatdns ip
 
 `records` 的 `TARGET` 可以是托管域 `example.com`，也可以是完整主机名 `www.example.com`。如果同时给出位置参数和 `--domain/--rr`，位置参数优先，CLI 会输出忽略提示。
 
+`list` 默认只请求第一页（`--page 1 --page-size 20`）。做完整 zone 盘点时，显式提高 `--page-size`（Aliyun/Tencent 常用 100）并按 `--page` 继续分页，直到返回不足一页或 provider 计数核对完成。
+
 常用只读命令：
 
 ```bash

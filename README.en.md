@@ -55,9 +55,9 @@ chatdns
 │   ├── apply       # Issue/install through DNS-01; writes DNS and local certs
 │   ├── check       # Read-only local certificate status
 │   └── manifest    # Read-only Infra manifest rendering
-├── ddns            # One-shot or monitored A / AAAA updates
+├── ddns            # One-shot or monitored A updates
 ├── delete          # Delete a DNS record
-├── ip              # Resolve public / private / all IPs
+├── ip              # Detect public/local IP
 ├── list            # List managed zones
 ├── records         # Query records
 └── set             # Idempotently set a record
