@@ -31,6 +31,7 @@ def test_dns_help_commands():
         ["cert", "--help"],
         ["cert", "apply", "--help"],
         ["cert", "check", "--help"],
+        ["cert", "manifest", "--help"],
     ]:
         result = runner.invoke(main, args)
         assert result.exit_code == 0, result.output

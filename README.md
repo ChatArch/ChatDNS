@@ -55,9 +55,9 @@ chatdns
 │   ├── apply       # DNS-01 申请并安装证书；写 DNS 与本地证书
 │   ├── check       # 只读检查本地证书状态
 │   └── manifest    # 只读渲染 Infra manifest
-├── ddns            # 单次或持续更新 A / AAAA
+├── ddns            # 单次或持续更新 A 记录
 ├── delete          # 删除记录
-├── ip              # 解析 public / private / all IP
+├── ip              # 查询 public/local IP
 ├── list            # 列出 managed zones
 ├── records         # 查询记录
 └── set             # 幂等设置记录

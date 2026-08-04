@@ -66,6 +66,8 @@ chatdns ip
 
 `records` accepts either a managed zone such as `example.com` or a full hostname such as `www.example.com`. If a positional target and `--domain/--rr` are both present, the positional target wins and the CLI prints a warning.
 
+`list` requests only the first page by default (`--page 1 --page-size 20`). For a complete zone inventory, raise `--page-size` explicitly (100 is the usual safe value for Aliyun/Tencent) and continue with `--page` until a short page is returned or the provider record count has been reconciled.
+
 ```bash
 chatdns --env work list --provider tencent
 chatdns --env work records example.com --provider tencent -I

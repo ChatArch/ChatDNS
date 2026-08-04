@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Correct README CLI-tree descriptions for the current A-only DDNS updater and public/local IP detection.
+- Clarify `chatdns list` pagination expectations for complete zone inventory audits.
+- Add CLI help smoke coverage for `chatdns cert manifest --help`.
+
 ## 0.1.6 - 2026-08-04
 
 - Serialize explicit certificate paths that overlap generated numeric suffix families, such as `foo` and `foo-2`.
