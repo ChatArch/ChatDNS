@@ -29,9 +29,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ChatArch/ChatDNS"
-Repository = "https://github.com/ChatArch/ChatDNS"
+Homepage = "https://arch.gh.wzhecnu.cn/ChatDNS/"
 Documentation = "https://arch.gh.wzhecnu.cn/ChatDNS/"
+Repository = "https://github.com/ChatArch/ChatDNS"
 
 [project.scripts]
 chatdns = "chatdns.cli:main"
@@ -40,7 +40,7 @@ chatdns = "chatdns.cli:main"
 dev = ["build", "pytest", "pytest-asyncio", "twine"]
 docs = [
     "mkdocs>=1.6,<2.0",
-    "mkdocs-material>=9.5,<9.7",
+    "mkdocs-material>=9.5,<10.0",
     "mkdocs-static-i18n>=1.2,<2.0",
     "mike>=2.0,<3.0",
 ]

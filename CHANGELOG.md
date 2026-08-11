@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.10 - 2026-08-12
+
+- Add the MkDocs Material emoji renderer baseline so Material icon shorthand cannot leak into generated/live docs.
+- Broaden the docs extra to the current ChatArch `mkdocs-material>=9.5,<10.0` window.
+- Harden package publishing with a default-branch ancestry guard and an explicitly named OIDC PyPI publish step.
+- Expand CI to Python 3.10/3.11/3.12 and add installed `chatdns --version` / `chatdns --tree` smoke checks.
+- Point package homepage metadata at the ChatArch docs domain.
+- This release only changes packaging, docs, and workflow guardrails; no DNS provider or certificate mutation path changes.
+
 ## 0.1.9 - 2026-08-11
 
 - Added top-level `chatdns --tree` generated from the registered Click command surface.
