@@ -16,7 +16,7 @@ ChatDNS 是 ChatArch 的 DNS、DDNS 与 ACME DNS-01 证书工具。它统一 Ali
 | 第一次安装并安全验证 profile | [快速开始](docs/quickstart.md) |
 | 查找命令、参数和副作用 | [CLI 树](docs/cli-tree.md) |
 | 理解证书目录、SAN 复用和 symlink 拒绝规则 | [证书目录与创建规则](docs/certificate-storage.md) |
-| 直接查看所有公开命令 | `chatdns --help` |
+| 直接查看所有公开命令 | `chatdns --tree` / `chatdns --help` |
 
 ## 安装
 
@@ -51,17 +51,23 @@ chatdns --env work cert check '*.example.com' --cert-path default
 
 ```text
 chatdns
-├── cert
-│   ├── apply       # DNS-01 申请并安装证书；写 DNS 与本地证书
-│   ├── check       # 只读检查指定域名续期状态
-│   ├── status      # 只读扫描内部证书根
-│   └── manifest    # show/init/validate Infra manifest；init 只写本地清单/README
-├── ddns            # 单次或持续更新 A 记录
-├── delete          # 删除记录
-├── ip              # 查询 public/local IP
-├── list            # 列出 managed zones
-├── records         # 查询记录
-└── set             # 幂等设置记录
+├── --help  # Show this message and exit.
+├── --version  # Show the installed ChatDNS version.
+├── --tree  # Print this registered command tree and exit.
+├── cert  # Manage Let's Encrypt certificates through DNS-01 validation.
+│   ├── apply [--domain DOMAINS] [--email EMAIL] [--provider PROVIDER] [--env ENV-PROFILE] [--cert-dir CERT-DIR] [--cert-path CERT-PATH] [--staging] [--force] [--log-file LOG-FILE] [--log-level LOG-LEVEL] [--interactive]  # Apply or renew certificates using ACME DNS-01 validation.
+│   ├── check [DOMAINS...] [--cert-dir CERT-DIR] [--cert-path CERT-PATH] [--provider PROVIDER]  # Check local certificate expiry for one or more domains.
+│   ├── manifest  # Show, create, or validate Infra certificate manifests.
+│   │   ├── init [MANIFEST-PATH] [--cert-dir CERT-DIR] [--cert-path CERT-PATH] [--from-store] [--scripts-dir SCRIPTS-DIR] [--force] [--format OUTPUT-FORMAT]  # Create an Infra manifest and scripts/README scaffold from the local store.
+│   │   ├── show [MANIFEST-PATH]  # Render an Infra certificate manifest as a table without modifying it.
+│   │   └── validate [MANIFEST-PATH]  # Validate manifest shape and referenced local certificate files.
+│   └── status [DOMAINS...] [--cert-dir CERT-DIR] [--cert-path CERT-PATH] [--expiring-within EXPIRING-WITHIN] [--format OUTPUT-FORMAT] [--strict]  # Scan the internal certificate store and report current leaf status.
+├── ddns [FULL-DOMAIN] [--domain DOMAIN] [--rr RR] [--ttl TTL] [--interval INTERVAL] [--max-retries MAX-RETRIES] [--retry-delay RETRY-DELAY] [--monitor] [--log-file LOG-FILE] [--log-level LOG-LEVEL] [--ip-type IP-TYPE] [--local-ip-cidr LOCAL-IP-CIDR] [--provider PROVIDER] [--env ENV-PROFILE] [--interactive]  # Run dynamic DNS updates once or in continuous monitoring mode.
+├── delete [FULL-DOMAIN] [--domain DOMAIN] [--rr RR] [--type RECORD-TYPE] [--value VALUE] [--yes] [--provider PROVIDER] [--env ENV-PROFILE] [--interactive]  # Delete DNS records by domain, host record, type, and optional value.
+├── ip [--type IP-TYPE] [--local-ip-cidr LOCAL-IP-CIDR]  # Show the current public or local IP without touching DNS records.
+├── list [--provider PROVIDER] [--page PAGE-NUMBER] [--page-size PAGE-SIZE] [--env ENV-PROFILE]  # List DNS domains in the provider account.
+├── records [TARGET] [--domain DOMAIN] [--rr RR] [--type RECORD-TYPE] [--provider PROVIDER] [--env ENV-PROFILE] [--interactive]  # Show DNS record details.
+└── set [FULL-DOMAIN] [--domain DOMAIN] [--rr RR] [--type RECORD-TYPE] [--value VALUE] [--ttl TTL] [--provider PROVIDER] [--env ENV-PROFILE] [--interactive]  # Create or update a DNS record.
 ```
 
 完整参数、profile 位置规则、交互选项和副作用矩阵见 [CLI 树](docs/cli-tree.md)。
