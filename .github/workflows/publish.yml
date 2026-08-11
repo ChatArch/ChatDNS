@@ -53,21 +53,25 @@ jobs:
             echo "Tag ${GITHUB_REF_NAME} does not match package version ${RELEASE_TAG}."
             exit 1
           fi
+      - name: Check release commit is on default branch
+        if: github.event_name == 'push'
+        run: |
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          git merge-base --is-ancestor "${GITHUB_SHA}" "origin/main"
       - name: Check PyPI version
         id: pypi
         env:
-          PACKAGE_NAME: "ChatDNS"
           PACKAGE_VERSION: ${{ steps.meta.outputs.version }}
         run: |
           python - <<'PY'
           import os
           import urllib.error
-          import urllib.parse
           import urllib.request
 
-          package = os.environ["PACKAGE_NAME"]
+          package = "ChatDNS"
           version = os.environ["PACKAGE_VERSION"]
-          url = f"https://pypi.org/pypi/{urllib.parse.quote(package)}/{urllib.parse.quote(version)}/json"
+          base_url = "https://pypi.org/pypi/ChatDNS/"
+          url = f"{base_url}{version}/json"
           exists = "false"
           try:
               urllib.request.urlopen(url, timeout=10)
@@ -89,6 +93,6 @@ jobs:
           python -m pip install --upgrade pip build twine
           python -m build
           python -m twine check dist/*
-      - name: Publish to PyPI
+      - name: Publish to PyPI (OIDC)
         if: steps.pypi.outputs.exists == 'false'
         uses: pypa/gh-action-pypi-publish@release/v1

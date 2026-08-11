@@ -25,12 +25,13 @@ jobs:
           python-version: "3.10"
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e ".[docs]"
-      - run: |
+      - name: Deploy dev docs
+        env:
+          CHATARCH_PREVIEW_URL: https://arch.gh.wzhecnu.cn/${{ github.event.repository.name }}/dev/
+        run: |
           git fetch origin
           mike deploy dev -p --allow-empty
-          repo="${GITHUB_REPOSITORY#*/}"
-          preview_url="https://arch.gh.wzhecnu.cn/${repo}/dev/"
-          echo "Preview URL: ${preview_url}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Preview URL: ${CHATARCH_PREVIEW_URL}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Comment PR with Preview Link
         uses: actions/github-script@v6

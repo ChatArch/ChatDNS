@@ -8,13 +8,13 @@ from chatdns.cli import main
 
 
 def test_version():
-    assert chatdns.__version__ == "0.1.9"
+    assert chatdns.__version__ == "0.1.10"
 
 
 def test_cli_version():
     result = CliRunner().invoke(main, ["--version"])
     assert result.exit_code == 0, result.output
-    assert "ChatDNS, version 0.1.9" in result.output
+    assert "ChatDNS, version 0.1.10" in result.output
 
 
 def test_cli_help_lists_tree_option():
