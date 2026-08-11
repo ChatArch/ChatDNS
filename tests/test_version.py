@@ -8,13 +8,41 @@ from chatdns.cli import main
 
 
 def test_version():
-    assert chatdns.__version__ == "0.1.8"
+    assert chatdns.__version__ == "0.1.9"
 
 
 def test_cli_version():
     result = CliRunner().invoke(main, ["--version"])
     assert result.exit_code == 0, result.output
-    assert "ChatDNS, version 0.1.8" in result.output
+    assert "ChatDNS, version 0.1.9" in result.output
+
+
+def test_cli_help_lists_tree_option():
+    result = CliRunner().invoke(main, ["--help"])
+
+    assert result.exit_code == 0, result.output
+    assert "--tree" in result.output
+
+
+def test_cli_tree_renders_registered_command_surface():
+    result = CliRunner().invoke(main, ["--tree"])
+
+    assert result.exit_code == 0, result.output
+    assert "chatdns" in result.output
+    assert "├── --help" in result.output
+    assert "├── --version" in result.output
+    assert "├── --tree" in result.output
+    assert "list" in result.output
+    assert "ddns [FULL-DOMAIN]" in result.output
+    assert "set [FULL-DOMAIN]" in result.output
+    assert "records [TARGET]" in result.output
+    assert "delete [FULL-DOMAIN]" in result.output
+    assert "cert" in result.output
+    assert "cert apply" not in result.output
+    assert "apply" in result.output
+    assert "manifest" in result.output
+    assert "validate" in result.output
+    assert "hello" not in result.output.lower()
 
 
 def test_chatenv_config_entry_point_registered():

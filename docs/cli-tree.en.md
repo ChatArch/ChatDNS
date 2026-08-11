@@ -6,25 +6,34 @@ Start with the [Quick Start](quickstart.md) if provider profiles are not configu
 
 ## Top-Level Commands
 
+This tree comes from the currently registered Click surface and can be read back with `chatdns --tree`:
+
 ```text
 chatdns
-├── cert                # DNS-01 issuance, store inventory, and Infra manifest scaffolding
-│   ├── apply           # Issue or renew; writes DNS TXT records and local certificate files
-│   ├── check           # Inspect renewal status for requested names
-│   ├── status          # Scan the internal certificate root and report leaf status
-│   └── manifest        # show/init/validate Infra manifests; init writes only local files/README
-├── ddns                # Update once or monitor a dynamic IP; may write DNS records
-├── delete              # Filter and delete DNS records
-├── ip                  # Detect public or local IP without changing DNS
-├── list                # List managed zones in the provider account
-├── records             # Query records for a zone or full hostname
-└── set                 # Idempotently create or update a DNS record
+├── --help  # Show this message and exit.
+├── --version  # Show the installed ChatDNS version.
+├── --tree  # Print this registered command tree and exit.
+├── cert  # Manage Let's Encrypt certificates through DNS-01 validation.
+│   ├── apply [--domain DOMAINS] [--email EMAIL] [--provider PROVIDER] [--env ENV-PROFILE] [--cert-dir CERT-DIR] [--cert-path CERT-PATH] [--staging] [--force] [--log-file LOG-FILE] [--log-level LOG-LEVEL] [--interactive]  # Apply or renew certificates using ACME DNS-01 validation.
+│   ├── check [DOMAINS...] [--cert-dir CERT-DIR] [--cert-path CERT-PATH] [--provider PROVIDER]  # Check local certificate expiry for one or more domains.
+│   ├── manifest  # Show, create, or validate Infra certificate manifests.
+│   │   ├── init [MANIFEST-PATH] [--cert-dir CERT-DIR] [--cert-path CERT-PATH] [--from-store] [--scripts-dir SCRIPTS-DIR] [--force] [--format OUTPUT-FORMAT]  # Create an Infra manifest and scripts/README scaffold from the local store.
+│   │   ├── show [MANIFEST-PATH]  # Render an Infra certificate manifest as a table without modifying it.
+│   │   └── validate [MANIFEST-PATH]  # Validate manifest shape and referenced local certificate files.
+│   └── status [DOMAINS...] [--cert-dir CERT-DIR] [--cert-path CERT-PATH] [--expiring-within EXPIRING-WITHIN] [--format OUTPUT-FORMAT] [--strict]  # Scan the internal certificate store and report current leaf status.
+├── ddns [FULL-DOMAIN] [--domain DOMAIN] [--rr RR] [--ttl TTL] [--interval INTERVAL] [--max-retries MAX-RETRIES] [--retry-delay RETRY-DELAY] [--monitor] [--log-file LOG-FILE] [--log-level LOG-LEVEL] [--ip-type IP-TYPE] [--local-ip-cidr LOCAL-IP-CIDR] [--provider PROVIDER] [--env ENV-PROFILE] [--interactive]  # Run dynamic DNS updates once or in continuous monitoring mode.
+├── delete [FULL-DOMAIN] [--domain DOMAIN] [--rr RR] [--type RECORD-TYPE] [--value VALUE] [--yes] [--provider PROVIDER] [--env ENV-PROFILE] [--interactive]  # Delete DNS records by domain, host record, type, and optional value.
+├── ip [--type IP-TYPE] [--local-ip-cidr LOCAL-IP-CIDR]  # Show the current public or local IP without touching DNS records.
+├── list [--provider PROVIDER] [--page PAGE-NUMBER] [--page-size PAGE-SIZE] [--env ENV-PROFILE]  # List DNS domains in the provider account.
+├── records [TARGET] [--domain DOMAIN] [--rr RR] [--type RECORD-TYPE] [--provider PROVIDER] [--env ENV-PROFILE] [--interactive]  # Show DNS record details.
+└── set [FULL-DOMAIN] [--domain DOMAIN] [--rr RR] [--type RECORD-TYPE] [--value VALUE] [--ttl TTL] [--provider PROVIDER] [--env ENV-PROFILE] [--interactive]  # Create or update a DNS record.
 ```
 
 Public top-level options:
 
 | Option | Purpose |
 | --- | --- |
+| `--tree` | Print the registered CLI command tree and exit |
 | `--version` | Print the ChatDNS version |
 | `-e, --env PROFILE` | Select a named provider ChatEnv profile before the command |
 | `--chatarch-home DIR` | Override `CHATARCH_HOME` for profile loading in this invocation |

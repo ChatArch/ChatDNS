@@ -46,7 +46,7 @@ ChatDNS 是 ChatArch 的 DNS、DDNS 与 ACME DNS-01 证书工具。它把 Aliyun
 ```bash
 uv venv --python 3.12
 uv pip install ChatDNS
-chatdns --help
+chatdns --tree
 ```
 
 ## 副作用速查

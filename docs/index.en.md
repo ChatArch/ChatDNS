@@ -46,7 +46,7 @@ ChatDNS is ChatArch's DNS, DDNS, and ACME DNS-01 certificate tool. It organizes 
 ```bash
 uv venv --python 3.12
 uv pip install ChatDNS
-chatdns --help
+chatdns --tree
 ```
 
 ## Side-effect summary

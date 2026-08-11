@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.9 - 2026-08-11
+
+- Added top-level `chatdns --tree` generated from the registered Click command surface.
+- Documented the live command-tree readback in README and MkDocs CLI pages.
+- Raised the ChatEnv dependency floor to `>=0.2.4,<0.3.0` so released installs use the current ChatArch config/runtime baseline.
+
 ## Unreleased
 
 ## 0.1.8 - 2026-08-05

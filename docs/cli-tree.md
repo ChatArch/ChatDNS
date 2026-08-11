@@ -6,25 +6,34 @@
 
 ## 顶层命令
 
+以下命令树来自当前 Click 注册面，可用 `chatdns --tree` 直接回读：
+
 ```text
 chatdns
-├── cert                # DNS-01 证书申请、状态盘点和 Infra manifest 脚手架
-│   ├── apply           # 申请或续期证书；写 DNS TXT 和本地证书文件
-│   ├── check           # 检查指定域名的到期时间和续期状态
-│   ├── status          # 扫描内部证书根并输出 leaf 状态
-│   └── manifest        # show/init/validate Infra manifest；init 只写本地清单/README
-├── ddns                # 单次更新或持续监控动态 IP；可能写 DNS 记录
-├── delete              # 按域名、主机记录、类型和值筛选并删除 DNS 记录
-├── ip                  # 只探测公网或本地 IP，不修改 DNS
-├── list                # 列出 provider 账号中的托管域
-├── records             # 查询域名或完整主机名的 DNS 记录
-└── set                 # 幂等创建或更新 DNS 记录
+├── --help  # Show this message and exit.
+├── --version  # Show the installed ChatDNS version.
+├── --tree  # Print this registered command tree and exit.
+├── cert  # Manage Let's Encrypt certificates through DNS-01 validation.
+│   ├── apply [--domain DOMAINS] [--email EMAIL] [--provider PROVIDER] [--env ENV-PROFILE] [--cert-dir CERT-DIR] [--cert-path CERT-PATH] [--staging] [--force] [--log-file LOG-FILE] [--log-level LOG-LEVEL] [--interactive]  # Apply or renew certificates using ACME DNS-01 validation.
+│   ├── check [DOMAINS...] [--cert-dir CERT-DIR] [--cert-path CERT-PATH] [--provider PROVIDER]  # Check local certificate expiry for one or more domains.
+│   ├── manifest  # Show, create, or validate Infra certificate manifests.
+│   │   ├── init [MANIFEST-PATH] [--cert-dir CERT-DIR] [--cert-path CERT-PATH] [--from-store] [--scripts-dir SCRIPTS-DIR] [--force] [--format OUTPUT-FORMAT]  # Create an Infra manifest and scripts/README scaffold from the local store.
+│   │   ├── show [MANIFEST-PATH]  # Render an Infra certificate manifest as a table without modifying it.
+│   │   └── validate [MANIFEST-PATH]  # Validate manifest shape and referenced local certificate files.
+│   └── status [DOMAINS...] [--cert-dir CERT-DIR] [--cert-path CERT-PATH] [--expiring-within EXPIRING-WITHIN] [--format OUTPUT-FORMAT] [--strict]  # Scan the internal certificate store and report current leaf status.
+├── ddns [FULL-DOMAIN] [--domain DOMAIN] [--rr RR] [--ttl TTL] [--interval INTERVAL] [--max-retries MAX-RETRIES] [--retry-delay RETRY-DELAY] [--monitor] [--log-file LOG-FILE] [--log-level LOG-LEVEL] [--ip-type IP-TYPE] [--local-ip-cidr LOCAL-IP-CIDR] [--provider PROVIDER] [--env ENV-PROFILE] [--interactive]  # Run dynamic DNS updates once or in continuous monitoring mode.
+├── delete [FULL-DOMAIN] [--domain DOMAIN] [--rr RR] [--type RECORD-TYPE] [--value VALUE] [--yes] [--provider PROVIDER] [--env ENV-PROFILE] [--interactive]  # Delete DNS records by domain, host record, type, and optional value.
+├── ip [--type IP-TYPE] [--local-ip-cidr LOCAL-IP-CIDR]  # Show the current public or local IP without touching DNS records.
+├── list [--provider PROVIDER] [--page PAGE-NUMBER] [--page-size PAGE-SIZE] [--env ENV-PROFILE]  # List DNS domains in the provider account.
+├── records [TARGET] [--domain DOMAIN] [--rr RR] [--type RECORD-TYPE] [--provider PROVIDER] [--env ENV-PROFILE] [--interactive]  # Show DNS record details.
+└── set [FULL-DOMAIN] [--domain DOMAIN] [--rr RR] [--type RECORD-TYPE] [--value VALUE] [--ttl TTL] [--provider PROVIDER] [--env ENV-PROFILE] [--interactive]  # Create or update a DNS record.
 ```
 
 顶层公共选项：
 
 | 选项 | 作用 |
 | --- | --- |
+| `--tree` | 输出已注册 CLI 命令树并退出 |
 | `--version` | 输出 ChatDNS 版本 |
 | `-e, --env PROFILE` | 在命令前选择 provider 的 named ChatEnv profile |
 | `--chatarch-home DIR` | 为本次命令覆盖读取 ChatEnv profile 时使用的 `CHATARCH_HOME` |
