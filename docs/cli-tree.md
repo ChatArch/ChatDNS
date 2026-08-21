@@ -13,6 +13,9 @@ chatdns
 ├── --help  # Show this message and exit.
 ├── --version  # Show the installed ChatDNS version.
 ├── --tree  # Print this registered command tree and exit.
+├── --tree-brief  # Print this registered command tree without parameter signatures and exit.
+├── --env ENV-PROFILE  # ChatEnv profile name for provider credentials (use before the command).
+├── --chatarch-home CHATARCH-HOME  # Override CHATARCH_HOME when reading ChatEnv profiles.
 ├── cert  # Manage Let's Encrypt certificates through DNS-01 validation.
 │   ├── apply [--domain DOMAINS] [--email EMAIL] [--provider PROVIDER] [--env ENV-PROFILE] [--cert-dir CERT-DIR] [--cert-path CERT-PATH] [--staging] [--force] [--log-file LOG-FILE] [--log-level LOG-LEVEL] [--interactive]  # Apply or renew certificates using ACME DNS-01 validation.
 │   ├── check [DOMAINS...] [--cert-dir CERT-DIR] [--cert-path CERT-PATH] [--provider PROVIDER]  # Check local certificate expiry for one or more domains.
@@ -34,6 +37,7 @@ chatdns
 | 选项 | 作用 |
 | --- | --- |
 | `--tree` | 输出已注册 CLI 命令树并退出 |
+| `--tree-brief` | 输出省略参数签名的已注册 CLI 命令树并退出 |
 | `--version` | 输出 ChatDNS 版本 |
 | `-e, --env PROFILE` | 在命令前选择 provider 的 named ChatEnv profile |
 | `--chatarch-home DIR` | 为本次命令覆盖读取 ChatEnv profile 时使用的 `CHATARCH_HOME` |

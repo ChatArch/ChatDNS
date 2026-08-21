@@ -17,6 +17,11 @@
 
 ## Unreleased
 
+## 0.1.11 - 2026-08-21
+
+- Replace the package-local `--tree` renderer with ChatStyle's shared Click tree runtime and add `chatdns --tree-brief` for parameter-free tree output.
+- Require `chatstyle>=0.2.0,<0.3.0` and `chatenv>=0.2.9,<0.3.0` for the shared Click tree runtime.
+
 ## 0.1.8 - 2026-08-05
 
 - Add `chatdns cert status` to scan the internal certificate store and report leaf status as a table or JSON.

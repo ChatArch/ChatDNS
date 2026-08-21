@@ -17,6 +17,7 @@ from chatstyle import (
     CommandField,
     CommandSchema,
     add_interactive_option,
+    add_tree_option,
     is_interactive_available,
     resolve_command_inputs,
 )
@@ -36,107 +37,19 @@ def _env_profile_option(short: bool = True):
     return click.option(*params, help=ENV_PROFILE_HELP)
 
 
-def _format_metavar(name: str) -> str:
-    return name.replace("_", "-").upper()
-
-
-def _format_argument(param: click.Argument) -> str:
-    metavar = _format_metavar(param.name or "ARG")
-    if param.nargs == -1:
-        metavar = f"{metavar}..."
-    if not param.required:
-        return f"[{metavar}]"
-    return f"<{metavar}>"
-
-
-def _format_option(param: click.Option) -> str:
-    visible_opts = [opt for opt in param.opts if opt.startswith("--")]
-    visible_opts.extend(opt for opt in param.secondary_opts if opt.startswith("--"))
-    flag = visible_opts[0] if visible_opts else (param.opts[0] if param.opts else param.name or "OPTION")
-    if param.is_flag:
-        return f"[{flag}]"
-    return f"[{flag} {_format_metavar(param.name or 'VALUE')}]"
-
-
-def _command_signature(command: click.Command) -> str:
-    parts: list[str] = []
-    for param in command.params:
-        if getattr(param, "hidden", False):
-            continue
-        if isinstance(param, click.Argument):
-            parts.append(_format_argument(param))
-        elif isinstance(param, click.Option):
-            parts.append(_format_option(param))
-    return " ".join(parts)
-
-
-def _command_summary(command: click.Command) -> str:
-    return (command.short_help or command.help or "").strip().splitlines()[0]
-
-
-def _group_items(group: click.Group) -> list[tuple[str, str | click.Command]]:
-    items: list[tuple[str, str | click.Command]] = []
-    if group is cli:
-        items.extend(
-            [
-                ("--help", "Show this message and exit."),
-                ("--version", "Show the installed ChatDNS version."),
-                ("--tree", "Print this registered command tree and exit."),
-            ]
-        )
-    for name in group.list_commands(click.Context(group)):
-        command = group.get_command(click.Context(group), name)
-        if command is None or command.hidden:
-            continue
-        items.append((name, command))
-    return items
-
-
-def render_cli_tree(root: click.Group | None = None) -> str:
-    """Render the registered Click command tree for `chatdns --tree`."""
-    if root is None:
-        root = cli
-
-    lines = [root.name or "chatdns"]
-
-    def walk(items: list[tuple[str, str | click.Command]], prefix: str = "") -> None:
-        for index, (name, item) in enumerate(items):
-            last = index == len(items) - 1
-            branch = "└── " if last else "├── "
-            child_prefix = prefix + ("    " if last else "│   ")
-            if isinstance(item, str):
-                lines.append(f"{prefix}{branch}{name}  # {item}")
-                continue
-            signature = _command_signature(item)
-            summary = _command_summary(item)
-            label = f"{name} {signature}".strip()
-            lines.append(f"{prefix}{branch}{label}  # {summary}")
-            if isinstance(item, click.Group):
-                walk(_group_items(item), child_prefix)
-
-    walk(_group_items(root))
-    return "\n".join(lines)
-
-
-def _tree_callback(ctx: click.Context, param: click.Option, value: bool) -> None:
-    if not value or ctx.resilient_parsing:
-        return
-    if not isinstance(ctx.command, click.Group):
-        raise click.ClickException("--tree is only available on command groups")
-    click.echo(render_cli_tree(ctx.command))
-    ctx.exit()
-
-
 # CLI 接口
 @click.group(name="chatdns", invoke_without_command=True)
 @click.version_option(__version__, prog_name="ChatDNS")
-@click.option(
-    "--tree",
-    is_flag=True,
-    is_eager=True,
-    expose_value=False,
-    callback=_tree_callback,
+@add_tree_option(
     help="Print the registered CLI command tree and exit.",
+    brief_help="Print the registered CLI command tree without parameter signatures and exit.",
+    renderer_options={
+        "option_help_overrides": {
+            "--version": "Show the installed ChatDNS version.",
+            "--tree": "Print this registered command tree and exit.",
+            "--tree-brief": "Print this registered command tree without parameter signatures and exit.",
+        }
+    },
 )
 @click.option(
     "--env",

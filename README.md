@@ -16,7 +16,7 @@ ChatDNS 是 ChatArch 的 DNS、DDNS 与 ACME DNS-01 证书工具。它统一 Ali
 | 第一次安装并安全验证 profile | [快速开始](docs/quickstart.md) |
 | 查找命令、参数和副作用 | [CLI 树](docs/cli-tree.md) |
 | 理解证书目录、SAN 复用和 symlink 拒绝规则 | [证书目录与创建规则](docs/certificate-storage.md) |
-| 直接查看所有公开命令 | `chatdns --tree` / `chatdns --help` |
+| 直接查看所有公开命令 | `chatdns --tree` / `chatdns --tree-brief` / `chatdns --help` |
 
 ## 安装
 
@@ -54,6 +54,9 @@ chatdns
 ├── --help  # Show this message and exit.
 ├── --version  # Show the installed ChatDNS version.
 ├── --tree  # Print this registered command tree and exit.
+├── --tree-brief  # Print this registered command tree without parameter signatures and exit.
+├── --env ENV-PROFILE  # ChatEnv profile name for provider credentials (use before the command).
+├── --chatarch-home CHATARCH-HOME  # Override CHATARCH_HOME when reading ChatEnv profiles.
 ├── cert  # Manage Let's Encrypt certificates through DNS-01 validation.
 │   ├── apply [--domain DOMAINS] [--email EMAIL] [--provider PROVIDER] [--env ENV-PROFILE] [--cert-dir CERT-DIR] [--cert-path CERT-PATH] [--staging] [--force] [--log-file LOG-FILE] [--log-level LOG-LEVEL] [--interactive]  # Apply or renew certificates using ACME DNS-01 validation.
 │   ├── check [DOMAINS...] [--cert-dir CERT-DIR] [--cert-path CERT-PATH] [--provider PROVIDER]  # Check local certificate expiry for one or more domains.
