@@ -34,6 +34,8 @@ def test_public_docs_have_tree_and_no_material_literals():
     required = [
         "chatdns",
         "├── --tree  # Print this registered command tree and exit.",
+        "├── --tree-brief  # Print this registered command tree without parameter signatures and exit.",
+        "├── --env ENV-PROFILE",
         "├── cert  # Manage Let's Encrypt certificates through DNS-01 validation.",
         "│   └── status [DOMAINS...]",
         "└── set [FULL-DOMAIN]",

@@ -16,7 +16,7 @@ ChatDNS is ChatArch's DNS, DDNS, and ACME DNS-01 certificate tool. It presents o
 | Install ChatDNS and validate a profile safely | [Quick Start](docs/quickstart.en.md) |
 | Find commands, options, and side effects | [CLI Tree](docs/cli-tree.en.md) |
 | Understand certificate paths, SAN reuse, and symlink rejection | [Certificate Storage and Allocation](docs/certificate-storage.en.md) |
-| Inspect every public command directly | `chatdns --tree` / `chatdns --help` |
+| Inspect every public command directly | `chatdns --tree` / `chatdns --tree-brief` / `chatdns --help` |
 
 ## Install
 
@@ -54,6 +54,9 @@ chatdns
 ├── --help  # Show this message and exit.
 ├── --version  # Show the installed ChatDNS version.
 ├── --tree  # Print this registered command tree and exit.
+├── --tree-brief  # Print this registered command tree without parameter signatures and exit.
+├── --env ENV-PROFILE  # ChatEnv profile name for provider credentials (use before the command).
+├── --chatarch-home CHATARCH-HOME  # Override CHATARCH_HOME when reading ChatEnv profiles.
 ├── cert  # Manage Let's Encrypt certificates through DNS-01 validation.
 │   ├── apply [--domain DOMAINS] [--email EMAIL] [--provider PROVIDER] [--env ENV-PROFILE] [--cert-dir CERT-DIR] [--cert-path CERT-PATH] [--staging] [--force] [--log-file LOG-FILE] [--log-level LOG-LEVEL] [--interactive]  # Apply or renew certificates using ACME DNS-01 validation.
 │   ├── check [DOMAINS...] [--cert-dir CERT-DIR] [--cert-path CERT-PATH] [--provider PROVIDER]  # Check local certificate expiry for one or more domains.

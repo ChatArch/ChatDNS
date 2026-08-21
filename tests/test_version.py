@@ -8,13 +8,13 @@ from chatdns.cli import main
 
 
 def test_version():
-    assert chatdns.__version__ == "0.1.10"
+    assert chatdns.__version__ == "0.1.11"
 
 
 def test_cli_version():
     result = CliRunner().invoke(main, ["--version"])
     assert result.exit_code == 0, result.output
-    assert "ChatDNS, version 0.1.10" in result.output
+    assert "ChatDNS, version 0.1.11" in result.output
 
 
 def test_cli_help_lists_tree_option():
@@ -22,6 +22,7 @@ def test_cli_help_lists_tree_option():
 
     assert result.exit_code == 0, result.output
     assert "--tree" in result.output
+    assert "--tree-brief" in result.output
 
 
 def test_cli_tree_renders_registered_command_surface():
@@ -32,7 +33,9 @@ def test_cli_tree_renders_registered_command_surface():
     assert "├── --help" in result.output
     assert "├── --version" in result.output
     assert "├── --tree" in result.output
-    assert "list" in result.output
+    assert "├── --tree-brief" in result.output
+    assert "--env ENV-PROFILE" in result.output
+    assert "--chatarch-home CHATARCH-HOME" in result.output
     assert "ddns [FULL-DOMAIN]" in result.output
     assert "set [FULL-DOMAIN]" in result.output
     assert "records [TARGET]" in result.output
@@ -43,6 +46,17 @@ def test_cli_tree_renders_registered_command_surface():
     assert "manifest" in result.output
     assert "validate" in result.output
     assert "hello" not in result.output.lower()
+
+
+def test_cli_tree_brief_omits_parameter_signatures():
+    result = CliRunner().invoke(main, ["--tree-brief"])
+
+    assert result.exit_code == 0, result.output
+    assert "apply  # Apply or renew certificates" in result.output
+    assert "ddns  # Run dynamic DNS updates" in result.output
+    assert "[--domain DOMAINS]" not in result.output
+    assert "[FULL-DOMAIN]" not in result.output
+    assert "--env  # ChatEnv profile name" in result.output
 
 
 def test_chatenv_config_entry_point_registered():
